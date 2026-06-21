@@ -20,8 +20,10 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v16
 
       - name: Update flake.lock
+        id: update
         uses: DeterminateSystems/update-flake-lock@v24
         with:
+          token: ${{ secrets.GH_TOKEN }}
           pr-title: "chore: update flake.lock"
           pr-body: |
             Automated `nix flake update`.
@@ -30,4 +32,8 @@ jobs:
           pr-labels: |
             dependencies
             automated
-          merge: true
+      - name: Enable auto-merge
+        if: ${{ steps.update.outputs.pull-request-number != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: gh pr merge --auto --squash --delete-branch "${{ steps.update.outputs.pull-request-number }}"
