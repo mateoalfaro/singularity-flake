@@ -11,6 +11,28 @@ nix run github:mateoalfuro/singularity-flake
 nix build github:mateoalfuro/singularity-flake
 ```
 
+## NixOS module
+
+Add the flake to your inputs and enable it with a single option:
+
+```nix
+{
+  inputs.singularity-desktop.url = "github:mateoalfuro/singularity-flake";
+
+  outputs = { self, nixpkgs, singularity-desktop, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        singularity-desktop.nixosModules.default
+        {
+          programs.singularity-desktop.enable = true;
+        }
+      ];
+    };
+  };
+}
+```
+
 ## Inputs
 
 - `nixpkgs` — pinned to `nixos-unstable`.

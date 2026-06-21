@@ -287,5 +287,7 @@
         passthru.providedSessions = [ "singularity-desktop" ];
       };
     });
+
+    nixosModules.default = import ./nixos-module.nix self;
   };
 }
