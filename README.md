@@ -5,10 +5,10 @@ A Nix Flake to use the in development singularity desktop.
 
 ```sh
 # Run directly without installing
-nix run github:mateoalfuro/singularity-flake
+nix run github:mateoalfaro/singularity-flake
 
 # Or build it
-nix build github:mateoalfuro/singularity-flake
+nix build github:mateoalfaro/singularity-flake
 ```
 
 ## NixOS module
@@ -17,7 +17,7 @@ Add the flake to your inputs and enable it with a single option:
 
 ```nix
 {
-  inputs.singularity-desktop.url = "github:mateoalfuro/singularity-flake";
+  inputs.singularity-desktop.url = "github:mateoalfaro/singularity-flake";
 
   outputs = { self, nixpkgs, singularity-desktop, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
