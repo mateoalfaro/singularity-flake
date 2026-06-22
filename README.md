@@ -17,7 +17,7 @@ Add the flake to your inputs and enable it with a single option:
 
 ```nix
 {
-  inputs.singularity-desktop.url = "github:mateoalfuro/singularity-flake";
+  inputs.singularity-desktop.url = "github:mateoalfaro/singularity-flake";
 
   outputs = { self, nixpkgs, singularity-desktop, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
