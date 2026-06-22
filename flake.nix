@@ -203,10 +203,45 @@
             --replace-fail \
               '"$BIN/labwc"' \
               'labwc'
+
+          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
+            --replace-fail \
+              '"/opt/local/share/backgrounds/singularity/default.png",' \
+              '"/opt/local/share/backgrounds/singularity/default.png", "'"$out"'/share/backgrounds/singularity/default.png",'
+
+          # load_sessions(): NixOS aggregates wayland-sessions in
+          # /run/current-system/sw/share/wayland-sessions (populated by
+          # services.displayManager.sessionPackages).
+          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
+            --replace-fail \
+              '"/opt/local/share/wayland-sessions",' \
+              '"/run/current-system/sw/share/wayland-sessions", "/opt/local/share/wayland-sessions",'
+
+          # find_os_logo()
+          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
+            --replace-fail \
+              '"/opt/local/share/icons/hicolor/scalable/apps/%s.svg",' \
+              '"/run/current-system/sw/share/icons/hicolor/scalable/apps/%s.svg", "/opt/local/share/icons/hicolor/scalable/apps/%s.svg",'
+
+          substituteInPlace subprojects/singularity-splash/src/splash_main.c \
+            --replace-fail \
+              '"/opt/local/share/icons/hicolor/scalable/apps/%s.svg",' \
+              '"/run/current-system/sw/share/icons/hicolor/scalable/apps/%s.svg", "/opt/local/share/icons/hicolor/scalable/apps/%s.svg",'
+
+          # Custom greeter background from environment variables
+          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
+            --replace-fail \
+              'cairo_surface_t *bg = NULL;' \
+              'cairo_surface_t *bg = NULL;
+    const char *env_bg = getenv("SINGULARITY_GREETER_BACKGROUND");
+    if (env_bg && env_bg[0]) {
+        bg = loginui_load_wallpaper(env_bg, 960);
+        if (bg) return bg;
+    }'
         '';
 
         postFixup = ''
-          # Copy the Singularity labwc fork into the output so $BIN/labwc resolves at session startup. 
+          # Copy the Singularity labwc fork into the output so $BIN/labwc resolves at session startup.
           cp -r ${singularityLabwc}/bin/labwc $out/bin/
 
           # Symlink polkit agent to bin/ so session script can find it

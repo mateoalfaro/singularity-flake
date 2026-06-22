@@ -24,10 +24,22 @@ Add the flake to your inputs and enable it with a single option:
       system = "x86_64-linux";
       modules = [
         singularity-desktop.nixosModules.default
-        {
-          programs.singularity-desktop.enable = true;
-        }
       ];
+    };
+  };
+}
+```
+
+## Configuration
+
+```nix
+{
+  programs.singularity-desktop = {
+    enable = true;
+    greeter = {
+      enable = true;   # enables the Singularity greeter via greetd (disabled by default)
+      #You can also customize greetd by replacing the default background image
+      #background = "/path/to/image.jpg";
     };
   };
 }
