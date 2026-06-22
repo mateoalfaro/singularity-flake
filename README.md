@@ -5,10 +5,10 @@ A Nix Flake to use the in development singularity desktop.
 
 ```sh
 # Run directly without installing
-nix run github:mateoalfuro/singularity-flake
+nix run github:mateoalfaro/singularity-flake
 
 # Or build it
-nix build github:mateoalfuro/singularity-flake
+nix build github:mateoalfaro/singularity-flake
 ```
 
 ## NixOS module
