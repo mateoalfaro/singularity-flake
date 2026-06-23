@@ -209,13 +209,20 @@
               '"/opt/local/share/backgrounds/singularity/default.png",' \
               '"/opt/local/share/backgrounds/singularity/default.png", "'"$out"'/share/backgrounds/singularity/default.png",'
 
-          # load_sessions(): NixOS aggregates wayland-sessions in
-          # /run/current-system/sw/share/wayland-sessions (populated by
-          # services.displayManager.sessionPackages).
+          # load_sessions(): let the NixOS module point the greeter at the
+          # aggregated Wayland session desktop directory.
           substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
             --replace-fail \
-              '"/opt/local/share/wayland-sessions",' \
-              '"/run/current-system/sw/share/wayland-sessions", "/opt/local/share/wayland-sessions",'
+              '    const char *dirs[] = {' \
+              '    const char *env_dir = getenv("SINGULARITY_GREETER_SESSION_DIR");
+    if (env_dir && !env_dir[0]) env_dir = NULL;
+    const char *dirs[] = {'
+
+          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
+            --replace-fail \
+              '        "/opt/local/share/wayland-sessions",' \
+              '        env_dir,
+        "/opt/local/share/wayland-sessions",'
 
           # find_os_logo()
           substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \

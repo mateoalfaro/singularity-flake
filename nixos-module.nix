@@ -20,6 +20,7 @@ let
     export GDK_BACKEND=wayland
     export GSK_RENDERER=gl
     export GTK_A11Y=none
+    export SINGULARITY_GREETER_SESSION_DIR="${config.services.displayManager.sessionData.desktops}/share/wayland-sessions"
     ${vmCursorProbe}
     exec "${cfg.package}/bin/singularity-greeter"
   '';
