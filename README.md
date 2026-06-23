@@ -45,6 +45,20 @@ Add the flake to your inputs and enable it with a single option:
 }
 ```
 
+When `programs.singularity-desktop.greeter.enable = true`, your desktop session
+is started by `greetd` on `tty1`. If you later switch to another display
+manager such as GDM with `nixos-rebuild switch` while still logged into that session, 
+the existing `greetd` session will still be present in `tty1/tty2`, 
+in order for the session to dissapear you will need to reboot. 
+This apparently is intended greetd behavior and can not be fixed by me.
+
+For display manager changes such as `greetd` <-> `gdm`, prefer one of these:
+
+- use `nixos-rebuild boot` and reboot
+- run `nixos-rebuild switch` from another TTY or over SSH
+- after switching, move to the VT where the new display manager started
+  (commonly `Ctrl`+`Alt`+`F2` or `Ctrl`+`Alt`+`F3`)
+
 ## Inputs
 
 - `nixpkgs` — pinned to `nixos-unstable`.
