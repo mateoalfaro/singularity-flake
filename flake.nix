@@ -210,6 +210,15 @@
               "subproject('singularity-demo')" \
               "# subproject('singularity-demo')"
 
+          # singularity-store creates and installs its sidebar in Vala. The
+          # template sidebar is unused, and Vetro emits it as GtkAppSidebar
+          # without the libsingularity GIR metadata during the Nix build,
+          # which breaks the template and leaves main_stack null at runtime.
+          substituteInPlace subprojects/singularity-store/ui/main.vetro \
+            --replace-fail \
+              $'    AppSidebar(id: "sidebar_scroll", vexpand: true)\n\n' \
+              ""
+
           # Don't try to install PAM file to /etc/pam.d (Nix sandbox)
           substituteInPlace subprojects/singularity-shell/src/lockscreen/meson.build \
             --replace-fail \
