@@ -1,0 +1,153 @@
+--- a/subprojects/singularity-greeter/src/greeter_main.c
++++ b/subprojects/singularity-greeter/src/greeter_main.c
+@@ -40,6 +40,10 @@
+ struct g_session {
+     char name[128];
+     char exec[1024];
++    char desktop_file[1024];
++    char session_id[128];
++    char desktop_names[256];
++    char current_desktop[256];
+ };
+ static struct g_session sessions[32];
+ static int n_sessions = 0, sel_session = 0;
+@@ -281,18 +285,94 @@
+     greetd_send_object(b);
+ }
+ 
+-static void greetd_start_session(const char *exec) {
++static char *strip_desktop_exec_field_codes(const char *exec) {
++    GString *out = g_string_new(NULL);
++    for (const char *p = exec; p && *p; p++) {
++        if (*p == '%' && p[1]) {
++            if (p[1] == '%') {
++                g_string_append_c(out, '%');
++                p++;
++                continue;
++            }
++            if (strchr("fFuUick", p[1])) {
++                p++;
++                continue;
++            }
++        }
++        g_string_append_c(out, *p);
++    }
++    return g_string_free(out, FALSE);
++}
++
++static void desktop_names_to_current(const char *desktop_names, const char *fallback,
++                                     char *out, size_t out_sz) {
++    const char *src = (desktop_names && desktop_names[0]) ? desktop_names : fallback;
++    if (!src || !src[0]) src = "unknown";
++
++    size_t oi = 0;
++    bool last_sep = false;
++    for (const char *p = src; *p && oi + 1 < out_sz; p++) {
++        if (*p == ';') {
++            if (oi > 0 && !last_sep && oi + 1 < out_sz) {
++                out[oi++] = ':';
++                last_sep = true;
++            }
++        } else {
++            out[oi++] = *p;
++            last_sep = false;
++        }
++    }
++    while (oi > 0 && out[oi - 1] == ':') oi--;
++    out[oi] = '\0';
++    if (!out[0]) snprintf(out, out_sz, "%s", fallback && fallback[0] ? fallback : "unknown");
++}
++
++static void greetd_add_env(JsonBuilder *b, const char *key, const char *value) {
++    char item[1024];
++    snprintf(item, sizeof item, "%s=%s", key, value ? value : "");
++    json_builder_add_string_value(b, item);
++}
++
++static void greetd_add_session_env(JsonBuilder *b, const struct g_session *session) {
++    json_builder_set_member_name(b, "env");
++    json_builder_begin_array(b);
++    /*
++     * greetd injects start_session.env into PAM before pam_systemd opens the
++     * session. These values must be here, not only in the launcher process.
++     */
++    greetd_add_env(b, "XDG_SESSION_TYPE", "wayland");
++    greetd_add_env(b, "XDG_SESSION_CLASS", "user");
++    greetd_add_env(b, "XDG_SESSION_DESKTOP", session->session_id);
++    greetd_add_env(b, "XDG_CURRENT_DESKTOP", session->current_desktop);
++    greetd_add_env(b, "DESKTOP_SESSION", session->session_id);
++    greetd_add_env(b, "GDK_BACKEND", "wayland");
++    json_builder_end_array(b);
++}
++
++static void greetd_start_session(const struct g_session *session) {
+     JsonBuilder *b = json_builder_new();
+     json_builder_begin_object(b);
+     json_builder_set_member_name(b, "type"); json_builder_add_string_value(b, "start_session");
+     json_builder_set_member_name(b, "cmd");
+     json_builder_begin_array(b);
+-    char *copy = g_strdup(exec);
+-    char *save = NULL;
+-    for (char *tok = strtok_r(copy, " ", &save); tok; tok = strtok_r(NULL, " ", &save))
+-        if (tok[0]) json_builder_add_string_value(b, tok);
+-    g_free(copy);
++
++    const char *launcher = getenv("SINGULARITY_GREETER_SESSION_LAUNCHER");
++    if (launcher && launcher[0] && session->desktop_file[0]) {
++        char *quoted_launcher = g_shell_quote(launcher);
++        char *quoted_desktop_file = g_shell_quote(session->desktop_file);
++        char *cmd = g_strdup_printf("%s %s", quoted_launcher, quoted_desktop_file);
++        json_builder_add_string_value(b, cmd);
++        g_free(cmd);
++        g_free(quoted_desktop_file);
++        g_free(quoted_launcher);
++    } else {
++        char *clean_exec = strip_desktop_exec_field_codes(session->exec);
++        json_builder_add_string_value(b, clean_exec);
++        g_free(clean_exec);
++    }
++
+     json_builder_end_array(b);
++    greetd_add_session_env(b, session);
+     greetd_send_object(b);
+ }
+ 
+@@ -352,7 +433,7 @@
+             } else if (g_strcmp0(type, "success") == 0) {
+                 if (awaiting_auth) {
+                     awaiting_auth = false;
+-                    if (n_sessions > 0) greetd_start_session(sessions[sel_session].exec);
++                    if (n_sessions > 0) greetd_start_session(&sessions[sel_session]);
+                     wl_display_flush(display);
+                     running = false;
+                 }
+@@ -482,14 +562,28 @@
+             if (g_key_file_load_from_file(kf, full, G_KEY_FILE_NONE, NULL)) {
+                 char *exec = g_key_file_get_string(kf, "Desktop Entry", "Exec", NULL);
+                 char *nm = g_key_file_get_string(kf, "Desktop Entry", "Name", NULL);
++                char *desktop_names = g_key_file_get_string(kf, "Desktop Entry", "DesktopNames", NULL);
+                 if (exec && exec[0]) {
+                     struct g_session *s = &sessions[n_sessions];
++                    char *session_id = g_strdup(name);
++                    if (session_id && g_str_has_suffix(session_id, ".desktop"))
++                        session_id[strlen(session_id) - strlen(".desktop")] = '\0';
++
+                     snprintf(s->exec, sizeof s->exec, "%s", exec);
+                     snprintf(s->name, sizeof s->name, "%s", (nm && nm[0]) ? nm : name);
++                    snprintf(s->desktop_file, sizeof s->desktop_file, "%s", full);
++                    snprintf(s->session_id, sizeof s->session_id, "%s",
++                        (session_id && session_id[0]) ? session_id : name);
++                    snprintf(s->desktop_names, sizeof s->desktop_names, "%s",
++                        (desktop_names && desktop_names[0]) ? desktop_names : s->session_id);
++                    desktop_names_to_current(s->desktop_names, s->session_id,
++                        s->current_desktop, sizeof s->current_desktop);
++
++                    g_free(session_id);
+                     if (strstr(name, "singularity") || strstr(exec, "singularity")) sel_session = n_sessions;
+                     n_sessions++;
+                 }
+-                g_free(exec); g_free(nm);
++                g_free(exec); g_free(nm); g_free(desktop_names);
+             }
+             g_key_file_free(kf);
+             g_free(full);

@@ -3,6 +3,11 @@ self: { lib, config, pkgs, ... }:
 let
   cfg = config.programs.singularity-desktop;
   gcfg = cfg.greeter;
+  displayManagerXdgDataDirs = lib.concatStringsSep ":" (lib.filter (s: s != "") [
+    "${config.services.displayManager.sessionData.desktops}/share"
+    "/run/current-system/sw/share"
+    (toString (config.services.displayManager.generic.environment.XDG_DATA_DIRS or ""))
+  ]);
 
   # Shared VM cursor detection
   vmCursorProbe = ''
@@ -16,11 +21,147 @@ let
     done
   '';
 
+  session-launcher = pkgs.writeShellScript "singularity-greeter-session-launcher" ''
+    if [ "$#" -ne 1 ]; then
+      echo "singularity-greeter-session-launcher: expected one desktop file argument, got $#" >&2
+      exit 1
+    fi
+
+    desktop_file="$1"
+    if [ -z "$desktop_file" ] || [ ! -r "$desktop_file" ]; then
+      echo "singularity-greeter-session-launcher: unreadable session file: $desktop_file" >&2
+      exit 1
+    fi
+
+    desktop_key() {
+      ${pkgs.gawk}/bin/awk -F= -v key="$1" '
+        /^\[/ { in_desktop = ($0 == "[Desktop Entry]"); next }
+        in_desktop && $1 == key {
+          sub(/^[^=]*=/, "")
+          print
+          exit
+        }
+      ' "$desktop_file"
+    }
+
+    dedupe_colon_path() {
+      _path_input="$1"
+      _path_output=
+      while [ -n "$_path_input" ]; do
+        _path_entry="''${_path_input%%:*}"
+        if [ "$_path_input" = "$_path_entry" ]; then
+          _path_input=
+        else
+          _path_input="''${_path_input#*:}"
+        fi
+        [ -n "$_path_entry" ] || continue
+        case ":$_path_output:" in
+          *:"$_path_entry":*) ;;
+          *) _path_output="''${_path_output:+$_path_output:}$_path_entry" ;;
+        esac
+      done
+      printf '%s\n' "$_path_output"
+    }
+
+    set_var_names() {
+      _set_vars=
+      for _var_name in "$@"; do
+        [ -n "''${!_var_name+x}" ] || continue
+        _set_vars="''${_set_vars:+$_set_vars }$_var_name"
+      done
+      printf '%s\n' "$_set_vars"
+    }
+
+    exec_line="$(desktop_key Exec || true)"
+    desktop_names="$(desktop_key DesktopNames || true)"
+    session_name="$(desktop_key Name || true)"
+    session_id="$(${pkgs.coreutils}/bin/basename "$desktop_file" .desktop)"
+
+    if [ -z "$exec_line" ]; then
+      echo "singularity-greeter-session-launcher: missing Exec in $desktop_file" >&2
+      exit 1
+    fi
+
+    if [ -z "$desktop_names" ]; then
+      desktop_names="$session_id"
+    fi
+
+    current_desktop="$(printf '%s\n' "$desktop_names" \
+      | ${pkgs.gnused}/bin/sed -e 's/;*$//' -e 's/;/:/g')"
+    if [ -z "$current_desktop" ]; then
+      current_desktop="$session_id"
+    fi
+
+    clean_exec="$(printf '%s\n' "$exec_line" \
+      | ${pkgs.gnused}/bin/sed \
+          -e 's/%%/__SINGULARITY_GREETER_PERCENT__/g' \
+          -e 's/[[:space:]]*%[fFuUick]//g' \
+          -e 's/__SINGULARITY_GREETER_PERCENT__/%/g')"
+
+    if [ -r /etc/profile ]; then
+      . /etc/profile
+    fi
+    if [ -n "''${HOME:-}" ] && [ -r "$HOME/.profile" ]; then
+      . "$HOME/.profile"
+    fi
+    if [ -n "''${HOME:-}" ] && [ -r "$HOME/.xprofile" ]; then
+      . "$HOME/.xprofile"
+    fi
+
+    # greetd passes start_session.env into PAM before pam_systemd. It clears
+    # XDG_SESSION_CLASS before exec, so keep these in the child environment too.
+    export XDG_SESSION_TYPE="''${XDG_SESSION_TYPE:-wayland}"
+    export XDG_SESSION_CLASS="''${XDG_SESSION_CLASS:-user}"
+    export XDG_SESSION_DESKTOP="''${XDG_SESSION_DESKTOP:-$session_id}"
+    export XDG_CURRENT_DESKTOP="''${XDG_CURRENT_DESKTOP:-$current_desktop}"
+    export DESKTOP_SESSION="''${DESKTOP_SESSION:-$session_id}"
+    export GDK_BACKEND="''${GDK_BACKEND:-wayland}"
+
+    if [ -n "$session_name" ]; then
+      export SINGULARITY_GREETER_SESSION_NAME="$session_name"
+    fi
+
+    export PATH="$(dedupe_colon_path "/run/wrappers/bin:/run/current-system/sw/bin:${config.systemd.package}/bin:${pkgs.dbus}/bin:${pkgs.coreutils}/bin''${PATH:+:$PATH}")"
+    export XDG_CONFIG_DIRS="$(dedupe_colon_path "/etc/xdg''${XDG_CONFIG_DIRS:+:$XDG_CONFIG_DIRS}")"
+    export XDG_DATA_DIRS="$(dedupe_colon_path "${displayManagerXdgDataDirs}''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}")"
+
+    if [ -z "''${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -n "''${XDG_RUNTIME_DIR:-}" ] && [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+      export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+    fi
+
+    import_vars="$(set_var_names \
+      PATH XDG_CONFIG_DIRS XDG_DATA_DIRS XDG_RUNTIME_DIR XDG_SESSION_ID \
+      XDG_SESSION_TYPE XDG_SESSION_CLASS XDG_SESSION_DESKTOP \
+      XDG_CURRENT_DESKTOP DESKTOP_SESSION DBUS_SESSION_BUS_ADDRESS \
+      WAYLAND_DISPLAY DISPLAY GDK_BACKEND)"
+
+    if [ -n "$import_vars" ]; then
+      ${config.systemd.package}/bin/systemctl --user import-environment $import_vars || true
+    fi
+
+    ${config.systemd.package}/bin/systemctl --user unset-environment \
+      LD_LIBRARY_PATH GI_TYPELIB_PATH GSETTINGS_SCHEMA_DIR QT_QPA_PLATFORMTHEME \
+      SINGULARITY_GREETER_SESSION_NAME || true
+
+    if [ -n "$import_vars" ]; then
+      ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd $import_vars || true
+    fi
+
+    ${pkgs.dbus}/bin/dbus-update-activation-environment \
+      LD_LIBRARY_PATH= GI_TYPELIB_PATH= GSETTINGS_SCHEMA_DIR= QT_QPA_PLATFORMTHEME= \
+      SINGULARITY_GREETER_SESSION_NAME= || true
+
+    echo "singularity-greeter-session-launcher: session=$session_id desktop=$XDG_CURRENT_DESKTOP type=$XDG_SESSION_TYPE class=$XDG_SESSION_CLASS id=''${XDG_SESSION_ID:-unset}" >&2
+
+    exec ${pkgs.runtimeShell} -lc "exec $clean_exec"
+  '';
+
   greeter-session = pkgs.writeShellScript "singularity-greeter-session" ''
     export GDK_BACKEND=wayland
     export GSK_RENDERER=gl
     export GTK_A11Y=none
     export SINGULARITY_GREETER_SESSION_DIR="${config.services.displayManager.sessionData.desktops}/share/wayland-sessions"
+    export SINGULARITY_GREETER_SESSION_LAUNCHER="${session-launcher}"
     ${vmCursorProbe}
     exec "${cfg.package}/bin/singularity-greeter"
   '';

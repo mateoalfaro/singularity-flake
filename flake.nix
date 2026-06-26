@@ -102,7 +102,21 @@
       };
 
     in {
-      default = pkgs.stdenv.mkDerivation {
+      default = let
+        runtimeBinPath = pkgs.lib.makeBinPath (with pkgs; [
+          coreutils
+          dbus
+          procps
+          systemd
+          xrdb
+          xsettingsd
+        ]);
+
+        runtimeLibraryPath = pkgs.lib.makeLibraryPath (with pkgs; [
+          libglvnd
+          mesa
+        ]);
+      in pkgs.stdenv.mkDerivation {
         pname = "singularity-desktop";
         version = "0.1.0";
 
@@ -179,6 +193,10 @@
           libxkbcommon
         ];
 
+        patches = [
+          ./patches/singularity-greeter-session-wrapper.patch
+        ];
+
         postPatch = ''
           # Fix hardcoded /usr/lib paths for polkit-agent-1
           substituteInPlace subprojects/singularity-shell/meson.build \
@@ -203,6 +221,78 @@
             --replace-fail \
               '"$BIN/labwc"' \
               'labwc'
+
+          substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
+            --replace-fail \
+              'PREFIX="$(dirname "$BIN")"' \
+              'PREFIX="$(dirname "$BIN")"
+
+          dedupe_colon_path() {
+            _path_input="$1"
+            _path_output=
+            while [ -n "$_path_input" ]; do
+              _path_entry="''${_path_input%%:*}"
+              if [ "$_path_input" = "$_path_entry" ]; then
+                _path_input=
+              else
+                _path_input="''${_path_input#*:}"
+              fi
+              [ -n "$_path_entry" ] || continue
+              case ":$_path_output:" in
+                *:"$_path_entry":*) ;;
+                *) _path_output="''${_path_output:+$_path_output:}$_path_entry" ;;
+              esac
+            done
+            printf "%s\n" "$_path_output"
+          }' \
+            --replace-fail \
+              'export PATH="$BIN:$PATH"' \
+              'export PATH="$(dedupe_colon_path "$BIN:${runtimeBinPath}:$PATH")"' \
+            --replace-fail \
+              'export LD_LIBRARY_PATH="$PREFIX/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
+              'export LD_LIBRARY_PATH="$(dedupe_colon_path "$PREFIX/lib:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}")"'
+
+          substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+            --replace-fail \
+              'SHARE="$PREFIX/share"' \
+              'SHARE="$PREFIX/share"
+
+          dedupe_colon_path() {
+            _path_input="$1"
+            _path_output=
+            while [ -n "$_path_input" ]; do
+              _path_entry="''${_path_input%%:*}"
+              if [ "$_path_input" = "$_path_entry" ]; then
+                _path_input=
+              else
+                _path_input="''${_path_input#*:}"
+              fi
+              [ -n "$_path_entry" ] || continue
+              case ":$_path_output:" in
+                *:"$_path_entry":*) ;;
+                *) _path_output="''${_path_output:+$_path_output:}$_path_entry" ;;
+              esac
+            done
+            printf "%s\n" "$_path_output"
+          }' \
+            --replace-fail \
+              'export PATH="$BIN:$PATH"' \
+              'export PATH="$(dedupe_colon_path "$BIN:${runtimeBinPath}:$PATH")"' \
+            --replace-fail \
+              'export LD_LIBRARY_PATH="$LIB''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
+              'export LD_LIBRARY_PATH="$(dedupe_colon_path "$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}")"' \
+            --replace-fail \
+              'export XDG_DATA_DIRS="$HOME/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:$SHARE:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"' \
+              'export XDG_DATA_DIRS="$(dedupe_colon_path "$HOME/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:$SHARE:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}")"' \
+            --replace-fail \
+              'export GI_TYPELIB_PATH="$LIB/girepository-1.0''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"' \
+              'export GI_TYPELIB_PATH="$(dedupe_colon_path "$LIB/girepository-1.0''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}")"' \
+            --replace-fail \
+              $'    QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
+              $'    XDG_DATA_DIRS \\' \
+            --replace-fail \
+              $'systemctl --user set-environment \\\n    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \\\n    QT_QPA_PLATFORMTHEME="$QT_QPA_PLATFORMTHEME" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" \\\n    GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR" 2>/dev/null || true' \
+              $'systemctl --user set-environment \\\n    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" 2>/dev/null || true'
 
           substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
             --replace-fail \
@@ -314,6 +404,7 @@
           Name=Singularity Desktop
           Comment=Singularity Desktop Environment
           Exec=$out/bin/singularity-labwc-session
+          DesktopNames=Singularity
           Type=Application
           EOF
         '';
