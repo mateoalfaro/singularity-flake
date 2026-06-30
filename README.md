@@ -4,16 +4,19 @@ A Nix Flake to use the in development singularity desktop.
 ## Usage
 
 ```sh
-# Run directly without installing
+# Run the packaged Singularity Desktop binary directly without installing.
+# This is useful for quick experiments, but it is not a full display-manager
+# session.
 nix run github:mateoalfaro/singularity-flake
 
-# Or build it
+# Build the package
 nix build github:mateoalfaro/singularity-flake
 ```
 
 ## NixOS module
 
-Add the flake to your inputs and enable it with a single option:
+For a real desktop session, use the NixOS module. Add the flake to your inputs
+and enable it with a single option:
 
 ```nix
 {
@@ -47,10 +50,10 @@ Add the flake to your inputs and enable it with a single option:
 
 When `programs.singularity-desktop.greeter.enable = true`, your desktop session
 is started by `greetd` on `tty1`. If you later switch to another display
-manager such as GDM with `nixos-rebuild switch` while still logged into that session, 
-the existing `greetd` session will still be present in `tty1/tty2`, 
-in order for the session to dissapear you will need to reboot. 
-This apparently is intended greetd behavior and can not be fixed by me.
+manager such as GDM with `nixos-rebuild switch` while still logged into that session,
+the existing `greetd` session will still be present in `tty1/tty2`.
+Reboot for the old session to disappear.
+This appears to be intended greetd behavior and cannot be fixed by this flake.
 
 For display manager changes such as `greetd` <-> `gdm`, prefer one of these:
 
@@ -59,18 +62,28 @@ For display manager changes such as `greetd` <-> `gdm`, prefer one of these:
 - after switching, move to the VT where the new display manager started
   (commonly `Ctrl`+`Alt`+`F2` or `Ctrl`+`Alt`+`F3`)
 
+### Custom package requirements
+
+`programs.singularity-desktop.package` can be overridden, but the replacement
+package must provide the same runtime interface as the default package:
+
+- `bin/singularity-labwc-session`
+- `bin/singularity-desktop-session`
+- `bin/labwc`
+- the greeter executables used by the module
+- Wayland session metadata under `share/wayland-sessions`
+- xdg-desktop-portal metadata and services
+- `passthru.providedSessions`
+
 ## Inputs
 
 - `nixpkgs` — pinned to `nixos-unstable`.
 - `labwc-src` — tracks the latest commit of [singularityos-lab/labwc](https://github.com/singularityos-lab/labwc).
 - `singularity-desktop-src` — tracks the latest commit of [singularityos-lab/singularity-desktop](https://github.com/singularityos-lab/singularity-desktop) (with submodules).
 
-## Auto-update
+## Updating inputs
 
-A daily GitHub Action (`.github/workflows/update-flake-lock.yml`) runs
-`nix flake update` and opens a Pull Request with the bumped `flake.lock`.
-
-To update manually at any time:
+To update inputs manually:
 
 ```sh
 nix flake update

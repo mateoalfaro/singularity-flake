@@ -5,11 +5,13 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
     labwc-src = {
+      #url = "path:/home/jafed/singularity-flake/singularity-desktop/subprojects/labwc"; #used for local development
       url = "github:singularityos-lab/labwc";
       flake = false;
     };
 
     singularity-desktop-src = {
+      #url = "path:/home/jafed/singularity-flake/singularity-desktop"; #used for local development
       url = "git+https://github.com/singularityos-lab/singularity-desktop.git?submodules=1";
       flake = false;
     };
@@ -142,10 +144,7 @@
         buildInputs = with pkgs; [
           gtk4
           gtk4-layer-shell
-          libdecor
-          labwc
           wayland
-          wlroots
           networkmanager
           upower
           libpulseaudio
@@ -168,12 +167,6 @@
           libxcrypt
           pam
           hwdata
-          libdisplay-info
-          libliftoff
-          mesa
-          libdrm
-          seatd
-          systemd
           qt6.qtbase
           glib
           gst_all_1.gstreamer
@@ -185,11 +178,7 @@
           pipewire
           cairo
           pango
-          pixman
-          libinput
-          libxml2
           libpng
-          librsvg
           libxkbcommon
         ];
 
@@ -233,69 +222,19 @@
 
           substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
             --replace-fail \
-              'PREFIX="$(dirname "$BIN")"' \
-              'PREFIX="$(dirname "$BIN")"
-
-          dedupe_colon_path() {
-            _path_input="$1"
-            _path_output=
-            while [ -n "$_path_input" ]; do
-              _path_entry="''${_path_input%%:*}"
-              if [ "$_path_input" = "$_path_entry" ]; then
-                _path_input=
-              else
-                _path_input="''${_path_input#*:}"
-              fi
-              [ -n "$_path_entry" ] || continue
-              case ":$_path_output:" in
-                *:"$_path_entry":*) ;;
-                *) _path_output="''${_path_output:+$_path_output:}$_path_entry" ;;
-              esac
-            done
-            printf "%s\n" "$_path_output"
-          }' \
-            --replace-fail \
               'export PATH="$BIN:$PATH"' \
-              'export PATH="$(dedupe_colon_path "$BIN:${runtimeBinPath}:$PATH")"' \
+              'export PATH="$BIN:${runtimeBinPath}''${PATH:+:$PATH}"' \
             --replace-fail \
               'export LD_LIBRARY_PATH="$PREFIX/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
-              'export LD_LIBRARY_PATH="$(dedupe_colon_path "$PREFIX/lib:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}")"'
+              'export LD_LIBRARY_PATH="$PREFIX/lib:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
 
           substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
             --replace-fail \
-              'SHARE="$PREFIX/share"' \
-              'SHARE="$PREFIX/share"
-
-          dedupe_colon_path() {
-            _path_input="$1"
-            _path_output=
-            while [ -n "$_path_input" ]; do
-              _path_entry="''${_path_input%%:*}"
-              if [ "$_path_input" = "$_path_entry" ]; then
-                _path_input=
-              else
-                _path_input="''${_path_input#*:}"
-              fi
-              [ -n "$_path_entry" ] || continue
-              case ":$_path_output:" in
-                *:"$_path_entry":*) ;;
-                *) _path_output="''${_path_output:+$_path_output:}$_path_entry" ;;
-              esac
-            done
-            printf "%s\n" "$_path_output"
-          }' \
-            --replace-fail \
               'export PATH="$BIN:$PATH"' \
-              'export PATH="$(dedupe_colon_path "$BIN:${runtimeBinPath}:$PATH")"' \
+              'export PATH="$BIN:${runtimeBinPath}''${PATH:+:$PATH}"' \
             --replace-fail \
               'export LD_LIBRARY_PATH="$LIB''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
-              'export LD_LIBRARY_PATH="$(dedupe_colon_path "$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}")"' \
-            --replace-fail \
-              'export XDG_DATA_DIRS="$HOME/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:$SHARE:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"' \
-              'export XDG_DATA_DIRS="$(dedupe_colon_path "$HOME/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:$SHARE:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}")"' \
-            --replace-fail \
-              'export GI_TYPELIB_PATH="$LIB/girepository-1.0''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"' \
-              'export GI_TYPELIB_PATH="$(dedupe_colon_path "$LIB/girepository-1.0''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}")"' \
+              'export LD_LIBRARY_PATH="$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
             --replace-fail \
               $'    QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
               $'    XDG_DATA_DIRS \\' \
@@ -364,17 +303,26 @@
             ${pkgs.glib.dev}/bin/glib-compile-schemas $out/share/glib-2.0/schemas
           fi
 
-           # Modify systemd user units to use $out paths instead of hardcoded /opt/...
+          # Modify systemd user units to use $out paths instead of hardcoded /opt/...
+          for systemd_user in $out/share/systemd/user $out/lib/systemd/user; do
+            [ -d "$systemd_user" ] || continue
 
-          systemd_user=$out/share/systemd/user
-          substituteInPlace $systemd_user/xdg-desktop-portal-singularity.service \
-            --replace-fail \
-              "ExecStart=/bin/sh -c 'for d in /opt/local/bin /opt/bin /usr/local/bin %h/.local/singularity/bin /usr/bin; do if [ -x \"\$d/xdg-desktop-portal-singularity\" ]; then exec \"\$d/xdg-desktop-portal-singularity\"; fi; done; exit 1'" \
-              "ExecStart=$out/libexec/xdg-desktop-portal-singularity"
-          substituteInPlace $systemd_user/singularity-polkit-agent.service \
-            --replace-fail \
-              "ExecStart=/usr/libexec/singularity-polkit-agent" \
-              "ExecStart=$out/libexec/singularity-polkit-agent"
+            if [ -f "$systemd_user/xdg-desktop-portal-singularity.service" ]; then
+              sed -i \
+                "s|^ExecStart=.*xdg-desktop-portal-singularity.*$|ExecStart=$out/libexec/xdg-desktop-portal-singularity|" \
+                "$systemd_user/xdg-desktop-portal-singularity.service"
+              grep -Fx "ExecStart=$out/libexec/xdg-desktop-portal-singularity" \
+                "$systemd_user/xdg-desktop-portal-singularity.service" >/dev/null
+            fi
+
+            if [ -f "$systemd_user/singularity-polkit-agent.service" ]; then
+              sed -i \
+                "s|^ExecStart=.*singularity-polkit-agent.*$|ExecStart=$out/libexec/singularity-polkit-agent|" \
+                "$systemd_user/singularity-polkit-agent.service"
+              grep -Fx "ExecStart=$out/libexec/singularity-polkit-agent" \
+                "$systemd_user/singularity-polkit-agent.service" >/dev/null
+            fi
+          done
 
           mkdir -p $out/share/dbus-1/services
           cat > $out/share/dbus-1/services/org.freedesktop.impl.portal.desktop.singularity.service << EOF
@@ -392,7 +340,7 @@
           # responder with the GTK impl as a fallback for any interface
           # Singularity doesn't implement.
           mkdir -p $out/share/xdg-desktop-portal
-          cat > $out/share/xdg-desktop-portal/portals.conf << EOF
+          cat > $out/share/xdg-desktop-portal/singularity-portals.conf << EOF
           [preferred]
           default=singularity;gtk
           EOF

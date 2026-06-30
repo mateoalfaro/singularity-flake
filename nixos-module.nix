@@ -44,25 +44,6 @@ let
       ' "$desktop_file"
     }
 
-    dedupe_colon_path() {
-      _path_input="$1"
-      _path_output=
-      while [ -n "$_path_input" ]; do
-        _path_entry="''${_path_input%%:*}"
-        if [ "$_path_input" = "$_path_entry" ]; then
-          _path_input=
-        else
-          _path_input="''${_path_input#*:}"
-        fi
-        [ -n "$_path_entry" ] || continue
-        case ":$_path_output:" in
-          *:"$_path_entry":*) ;;
-          *) _path_output="''${_path_output:+$_path_output:}$_path_entry" ;;
-        esac
-      done
-      printf '%s\n' "$_path_output"
-    }
-
     set_var_names() {
       _set_vars=
       for _var_name in "$@"; do
@@ -121,9 +102,9 @@ let
       export SINGULARITY_GREETER_SESSION_NAME="$session_name"
     fi
 
-    export PATH="$(dedupe_colon_path "/run/wrappers/bin:/run/current-system/sw/bin:${config.systemd.package}/bin:${pkgs.dbus}/bin:${pkgs.coreutils}/bin''${PATH:+:$PATH}")"
-    export XDG_CONFIG_DIRS="$(dedupe_colon_path "/etc/xdg''${XDG_CONFIG_DIRS:+:$XDG_CONFIG_DIRS}")"
-    export XDG_DATA_DIRS="$(dedupe_colon_path "${displayManagerXdgDataDirs}''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}")"
+    export PATH="/run/wrappers/bin:/run/current-system/sw/bin:${config.systemd.package}/bin:${pkgs.dbus}/bin:${pkgs.coreutils}/bin''${PATH:+:$PATH}"
+    export XDG_CONFIG_DIRS="/etc/xdg''${XDG_CONFIG_DIRS:+:$XDG_CONFIG_DIRS}"
+    export XDG_DATA_DIRS="${displayManagerXdgDataDirs}''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
 
     if [ -z "''${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -n "''${XDG_RUNTIME_DIR:-}" ] && [ -S "$XDG_RUNTIME_DIR/bus" ]; then
       export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
@@ -153,7 +134,7 @@ let
 
     echo "singularity-greeter-session-launcher: session=$session_id desktop=$XDG_CURRENT_DESKTOP type=$XDG_SESSION_TYPE class=$XDG_SESSION_CLASS id=''${XDG_SESSION_ID:-unset}" >&2
 
-    exec ${pkgs.runtimeShell} -lc "exec $clean_exec"
+    exec ${pkgs.runtimeShell} -c "exec $clean_exec"
   '';
 
   greeter-session = pkgs.writeShellScript "singularity-greeter-session" ''
@@ -184,7 +165,11 @@ in {
       defaultText = lib.literalExpression "inputs.singularity-desktop.packages.\${pkgs.system}.default";
       description = ''
         The singularity-desktop package to use. Defaults to the package
-        provided by this flake.
+        provided by this flake. Custom packages must provide the session and
+        greeter executables used by this module, including
+        <filename>bin/singularity-labwc-session</filename>,
+        <filename>bin/labwc</filename>, and the portal/session metadata
+        installed by the default package.
       '';
     };
 
