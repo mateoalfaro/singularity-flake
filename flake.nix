@@ -112,6 +112,7 @@
           systemd
           xrdb
           xsettingsd
+          xdg-user-dirs
         ]);
 
         runtimeLibraryPath = pkgs.lib.makeLibraryPath (with pkgs; [
