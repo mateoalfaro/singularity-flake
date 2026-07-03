@@ -15,9 +15,32 @@
       url = "git+https://github.com/singularityos-lab/singularity-desktop.git?submodules=1";
       flake = false;
     };
+
+    singularity-shell-src = {
+      url = "github:mateoalfaro/singularity-shell";
+      flake = false;
+    };
+
+    singularity-session-src = {
+      url = "github:mateoalfaro/singularity-session";
+      flake = false;
+    };
+
+    xdg-desktop-portal-singularity-src = {
+      url = "github:mateoalfaro/xdg-desktop-portal-singularity";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, labwc-src, singularity-desktop-src }: let
+  outputs = {
+    self,
+    nixpkgs,
+    labwc-src,
+    singularity-desktop-src,
+    singularity-shell-src,
+    singularity-session-src,
+    xdg-desktop-portal-singularity-src,
+  }: let
     systems = [ "x86_64-linux" ];
     forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
     pkgsFor = system: nixpkgs.legacyPackages.${system};
@@ -103,8 +126,10 @@
         };
       };
 
-    in {
-      default = let
+      makeSingularityDesktop = {
+        pname ? "singularity-desktop",
+        src ? singularity-desktop-src,
+      }: let
         runtimeBinPath = pkgs.lib.makeBinPath (with pkgs; [
           coreutils
           dbus
@@ -120,10 +145,8 @@
           mesa
         ]);
       in pkgs.stdenv.mkDerivation {
-        pname = "singularity-desktop";
+        inherit pname src;
         version = "0.1.0";
-
-        src = singularity-desktop-src;
 
         nativeBuildInputs = with pkgs; [
           meson
@@ -296,13 +319,19 @@
 
           # Compile GSettings schemas (meson install put them in a non-standard location)
           mkdir -p $out/share/glib-2.0/schemas
-          schema_src=$out/share/gsettings-schemas/singularity-desktop-0.1.0/glib-2.0/schemas
-          if [ -d "$schema_src" ]; then
-            for f in "$schema_src"/*.xml; do
+          schema_roots=$out/share/gsettings-schemas/*/glib-2.0/schemas
+          for schema_src in $schema_roots; do
+            [ -d "$schema_src" ] || continue
+            for f in "$schema_src"/*.gschema.xml; do
+              [ -e "$f" ] || continue
               ln -sf "$f" $out/share/glib-2.0/schemas/
             done
-            ${pkgs.glib.dev}/bin/glib-compile-schemas $out/share/glib-2.0/schemas
+          done
+          if [ ! -e $out/share/glib-2.0/schemas/dev.sinty.desktop.gschema.xml ]; then
+            echo "missing dev.sinty.desktop GSettings schema in $out/share/glib-2.0/schemas" >&2
+            exit 1
           fi
+          ${pkgs.glib.dev}/bin/glib-compile-schemas $out/share/glib-2.0/schemas
 
           # Modify systemd user units to use $out paths instead of hardcoded /opt/...
           for systemd_user in $out/share/systemd/user $out/lib/systemd/user; do
@@ -377,8 +406,36 @@
 
         passthru.providedSessions = [ "singularity-desktop" ];
       };
+    in {
+      default = makeSingularityDesktop { };
+
+      experimental = makeSingularityDesktop {
+        pname = "singularity-desktop-experimental";
+        src = pkgs.runCommand "singularity-desktop-experimental-src" { } ''
+          cp -R --no-preserve=mode,ownership ${singularity-desktop-src}/. $out
+
+          rm -rf $out/subprojects/singularity-shell
+          cp -R --no-preserve=mode,ownership ${singularity-shell-src} $out/subprojects/singularity-shell
+
+          rm -rf $out/subprojects/singularity-session
+          cp -R --no-preserve=mode,ownership ${singularity-session-src} $out/subprojects/singularity-session
+
+          rm -rf $out/subprojects/xdg-desktop-portal-singularity
+          cp -R --no-preserve=mode,ownership ${xdg-desktop-portal-singularity-src} $out/subprojects/xdg-desktop-portal-singularity
+        '';
+      };
     });
 
-    nixosModules.default = import ./nixos-module.nix self;
+    nixosModules = {
+      default = import ./nixos-module.nix {
+        package = pkgs: self.packages.${pkgs.system}.default;
+        defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.default";
+      };
+
+      experimental = import ./nixos-module.nix {
+        package = pkgs: self.packages.${pkgs.system}.experimental;
+        defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.experimental";
+      };
+    };
   };
 }

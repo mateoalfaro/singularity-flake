@@ -1,4 +1,4 @@
-self: { lib, config, pkgs, ... }:
+{ package, defaultText }: { lib, config, pkgs, ... }:
 
 let
   cfg = config.programs.singularity-desktop;
@@ -161,8 +161,8 @@ in {
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = self.packages.${pkgs.system}.default;
-      defaultText = lib.literalExpression "inputs.singularity-desktop.packages.\${pkgs.system}.default";
+      default = package pkgs;
+      defaultText = lib.literalExpression defaultText;
       description = ''
         The singularity-desktop package to use. Defaults to the package
         provided by this flake. Custom packages must provide the session and

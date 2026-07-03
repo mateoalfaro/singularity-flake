@@ -36,7 +36,10 @@
       "inputs": {
         "labwc-src": "labwc-src",
         "nixpkgs": "nixpkgs",
-        "singularity-desktop-src": "singularity-desktop-src"
+        "singularity-desktop-src": "singularity-desktop-src",
+        "singularity-session-src": "singularity-session-src",
+        "singularity-shell-src": "singularity-shell-src",
+        "xdg-desktop-portal-singularity-src": "xdg-desktop-portal-singularity-src"
       }
     },
     "singularity-desktop-src": {
@@ -55,6 +58,54 @@
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"
+      }
+    },
+    "singularity-session-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1783113948,
+        "narHash": "sha256-6PLTgh3SIZH7u6XSJkL/jXvc+A+phlPOA3NLzv/934c=",
+        "owner": "mateoalfaro",
+        "repo": "singularity-session",
+        "rev": "caac41cd57195178bddac7f8271dbbd7c5bb8f87",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mateoalfaro",
+        "repo": "singularity-session",
+        "type": "github"
+      }
+    },
+    "singularity-shell-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1783114057,
+        "narHash": "sha256-zFXOaLgh6Aev2bt/QTBf9J+w8Y2eTIZs0CbwTxKUt3A=",
+        "owner": "mateoalfaro",
+        "repo": "singularity-shell",
+        "rev": "822784cf9d940b71dbc447d619733711159013fd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mateoalfaro",
+        "repo": "singularity-shell",
+        "type": "github"
+      }
+    },
+    "xdg-desktop-portal-singularity-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1782680907,
+        "narHash": "sha256-Rt8Kep2JYgsXIwc4bBxBACC9SJmPiQMkffJ4JcPTImo=",
+        "owner": "mateoalfaro",
+        "repo": "xdg-desktop-portal-singularity",
+        "rev": "d3df667f0ad07fb978fc508440d3df75da633413",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mateoalfaro",
+        "repo": "xdg-desktop-portal-singularity",
+        "type": "github"
       }
     }
   },
