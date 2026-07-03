@@ -33,6 +33,7 @@ and enable it with a single option:
 }
 ```
 
+## NixOS module (experimental)
 You can also use the experimental module to replace some subprojects with my own forked versions, in order to help me test new features or bug fixes.
 
 ```nix
@@ -101,6 +102,8 @@ package must provide the same runtime interface as the default package:
 - `nixpkgs` — pinned to `nixos-unstable`.
 - `labwc-src` — tracks the latest commit of [singularityos-lab/labwc](https://github.com/singularityos-lab/labwc).
 - `singularity-desktop-src` — tracks the latest commit of [singularityos-lab/singularity-desktop](https://github.com/singularityos-lab/singularity-desktop) (with submodules).
+
+
 - `singularity-shell-src` — tracks `git@github.com:mateoalfaro/singularity-shell.git` for `packages.experimental` and `nixosModules.experimental`.
 - `singularity-session-src` — tracks `git@github.com:mateoalfaro/singularity-session.git` for `packages.experimental` and `nixosModules.experimental`.
 - `xdg-desktop-portal-singularity-src` — tracks `git@github.com:mateoalfaro/xdg-desktop-portal-singularity.git` for `packages.experimental` and `nixosModules.experimental`.
