@@ -45,11 +45,11 @@
     "singularity-desktop-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1782794944,
-        "narHash": "sha256-b0fIWFwyhzq+F+263ge7IX2bvceur/wEL7nTmkqU8pc=",
+        "lastModified": 1783257689,
+        "narHash": "sha256-ioJpO+cMovvTYS55S5VIkzKZ3ShhEO+sMz6nB2hx0O8=",
         "ref": "refs/heads/master",
-        "rev": "c7a6f3d4532f53f5b0e90ac35b5736201da12dbc",
-        "revCount": 153,
+        "rev": "8af931e55f0faaac060a28c2f1ef2ceedc54a9c9",
+        "revCount": 155,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"
@@ -79,11 +79,11 @@
     "singularity-shell-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1783114057,
-        "narHash": "sha256-zFXOaLgh6Aev2bt/QTBf9J+w8Y2eTIZs0CbwTxKUt3A=",
+        "lastModified": 1783257637,
+        "narHash": "sha256-wVs8WvvTObsrNEvh3TO3trA72AvVRogcPHne+a+63X4=",
         "owner": "mateoalfaro",
         "repo": "singularity-shell",
-        "rev": "822784cf9d940b71dbc447d619733711159013fd",
+        "rev": "e1c81253877ee095bae16d26ceada87dc997c2c0",
         "type": "github"
       },
       "original": {
