@@ -30,6 +30,11 @@
       url = "github:mateoalfaro/xdg-desktop-portal-singularity";
       flake = false;
     };
+
+    labwc-fork = {
+      url = "github:mateoalfaro/labwc?ref=main";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -40,6 +45,7 @@
     singularity-shell-src,
     singularity-session-src,
     xdg-desktop-portal-singularity-src,
+    labwc-fork,
   }: let
     systems = [ "x86_64-linux" ];
     forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
@@ -422,6 +428,9 @@
 
           rm -rf $out/subprojects/xdg-desktop-portal-singularity
           cp -R --no-preserve=mode,ownership ${xdg-desktop-portal-singularity-src} $out/subprojects/xdg-desktop-portal-singularity
+
+          rm -rf $out/subprojects/labwc
+          cp -R --no-preserve=mode,ownership ${labwc-fork} $out/subprojects/labwc
         '';
       };
     });
