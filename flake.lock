@@ -97,11 +97,11 @@
     "singularity-shell-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1783438487,
-        "narHash": "sha256-aVO1Xdt9XpzK6NuUIL44tFduWnWUOG2Ux6K2rN6LP4E=",
+        "lastModified": 1783613917,
+        "narHash": "sha256-gjQfgmA91frneX+xc7eVOMhOwX4O4x0UVvdDbS7nT2A=",
         "owner": "mateoalfaro",
         "repo": "singularity-shell",
-        "rev": "b885e15a79276ed37400b0cbf9dcfb3d58ce9a97",
+        "rev": "98569044fd063c7be7f39abde47d6804f460c5ff",
         "type": "github"
       },
       "original": {
