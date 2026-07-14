@@ -62,6 +62,14 @@ tree:
 {
   programs.singularity-desktop = {
     enable = true;
+
+    # Optional: you can also exclude bundled applications from the system profile.
+    excludePackages = with pkgs; [
+      singularity-calculator
+      singularity-music
+      singularity-store
+    ];
+
     greeter = {
       enable = true;   # enables the Singularity greeter via greetd (disabled by default)
       #You can also customize greetd by replacing the default background image
@@ -70,6 +78,26 @@ tree:
   };
 }
 ```
+
+`programs.singularity-desktop.excludePackages` accepts package values, like
+`environment.gnome.excludePackages`. Importing either Singularity NixOS module
+adds an overlay that exposes these default applications under `pkgs`:
+
+- `singularity-files`
+- `singularity-calculator`
+- `singularity-calendar`
+- `singularity-edit`
+- `singularity-git`
+- `singularity-leafs`
+- `singularity-monitor`
+- `singularity-music`
+- `singularity-photos`
+- `singularity-store`
+- `singularity-videos`
+- `singularity-write`
+
+The desktop session, shell, greeter, portal, themes, wallpapers, and other required desktop
+infrastructure are kept in the core package and cannot be excluded.
 
 When `programs.singularity-desktop.greeter.enable = true`, your desktop session
 is started by `greetd` on `tty1`. If you later switch to another display

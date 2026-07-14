@@ -1,13 +1,34 @@
-{ package, defaultText }: { lib, config, pkgs, ... }:
+{
+  package,
+  applications,
+  overlay,
+  defaultText,
+}:
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.programs.singularity-desktop;
   gcfg = cfg.greeter;
-  displayManagerXdgDataDirs = lib.concatStringsSep ":" (lib.filter (s: s != "") [
-    "${config.services.displayManager.sessionData.desktops}/share"
-    "/run/current-system/sw/share"
-    (toString (config.services.displayManager.generic.environment.XDG_DATA_DIRS or ""))
-  ]);
+  defaultPackage = package pkgs;
+  defaultApplications = applications pkgs;
+  usingDefaultPackage = cfg.package == defaultPackage;
+  applicationId = application: application.passthru.singularityAppId or (lib.getName application);
+  excludedApplicationIds = map applicationId cfg.excludePackages;
+  enabledDefaultApplications = lib.filter (
+    application: !(lib.elem (applicationId application) excludedApplicationIds)
+  ) defaultApplications;
+  displayManagerXdgDataDirs = lib.concatStringsSep ":" (
+    lib.filter (s: s != "") [
+      "${config.services.displayManager.sessionData.desktops}/share"
+      "/run/current-system/sw/share"
+      (toString (config.services.displayManager.generic.environment.XDG_DATA_DIRS or ""))
+    ]
+  );
 
   # Shared VM cursor detection
   vmCursorProbe = ''
@@ -155,13 +176,14 @@ let
     ''}
     exec labwc -s ${greeter-session}
   '';
-in {
+in
+{
   options.programs.singularity-desktop = {
     enable = lib.mkEnableOption "Singularity Desktop Environment";
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = package pkgs;
+      default = defaultPackage;
       defaultText = lib.literalExpression defaultText;
       description = ''
         The singularity-desktop package to use. Defaults to the package
@@ -170,6 +192,24 @@ in {
         <filename>bin/singularity-labwc-session</filename>,
         <filename>bin/labwc</filename>, and the portal/session metadata
         installed by the default package.
+      '';
+    };
+
+    excludePackages = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [ ];
+      example = lib.literalExpression ''
+        with pkgs; [
+          singularity-calculator
+          singularity-music
+          singularity-store
+        ]
+      '';
+      description = ''
+        Packages from the default Singularity application set that should not
+        be installed. This option is supported when using the desktop package
+        provided by this flake. Packages that are not part of the default
+        application set are ignored.
       '';
     };
 
@@ -213,52 +253,79 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    services.displayManager.sessionPackages = [ cfg.package ];
+  config = lib.mkMerge [
+    # Make the default applications available as pkgs.singularity-* so option
+    # values can use the same `with pkgs; [ ... ]` style as NixOS's GNOME
+    # module. Register the overlay whenever this module is imported so those
+    # attributes are also available while evaluating the option values.
+    {
+      nixpkgs.overlays = [ overlay ];
+    }
 
-    systemd.packages = [ cfg.package ];
+    (lib.mkIf cfg.enable {
+      services.displayManager.sessionPackages = [ cfg.package ];
 
-    xdg.portal = {
-      enable = true;
-      extraPortals = [ cfg.package ];
-      config.Singularity.default = [ "singularity" "gtk" ];
-    };
+      environment.systemPackages = lib.mkIf usingDefaultPackage enabledDefaultApplications;
 
-    # Auto-enable accounts-daemon when the greeter is on so this works out of the box (still overridable).
-    services.accounts-daemon.enable =
-      lib.mkIf gcfg.enable (lib.mkDefault true);
+      systemd.packages = [ cfg.package ];
 
-    services.greetd = lib.mkIf gcfg.enable {
-      enable = true;
-      settings = {
-        terminal.vt = 1;
-        default_session = {
-          command = "${start-greeter}";
-          user = gcfg.user;
+      xdg.portal = {
+        enable = true;
+        extraPortals = [ cfg.package ];
+        config.Singularity.default = [
+          "singularity"
+          "gtk"
+        ];
+      };
+
+      # Auto-enable accounts-daemon when the greeter is on so this works out of the box (still overridable).
+      services.accounts-daemon.enable = lib.mkIf gcfg.enable (lib.mkDefault true);
+
+      services.greetd = lib.mkIf gcfg.enable {
+        enable = true;
+        settings = {
+          terminal.vt = 1;
+          default_session = {
+            command = "${start-greeter}";
+            user = gcfg.user;
+          };
         };
       };
-    };
 
-    # NixOS greetd creates `users.users.greeter` with isSystemUser=true and
-    # adds it to video+input but not render.
-    users.users.greeter = lib.mkIf (gcfg.enable && gcfg.user == "greeter") {
-      extraGroups = lib.mkAfter [ "render" ];
-    };
+      # NixOS greetd creates `users.users.greeter` with isSystemUser=true and
+      # adds it to video+input but not render.
+      users.users.greeter = lib.mkIf (gcfg.enable && gcfg.user == "greeter") {
+        extraGroups = lib.mkAfter [ "render" ];
+      };
 
-
-    assertions = [
-      {
-        assertion = !(gcfg.enable
-          && ((config.services.displayManager.gdm.enable or false)
-              || (config.services.displayManager.sddm.enable or false)
-              || (config.services.xserver.displayManager.lightdm.enable or false)));
-        message = ''
-          singularity-desktop.greeter launches its greeter through greetd,
-          which must own VT 1. Disable your current display manager
-          (services.displayManager.{gdm,sddm,lightdm}.enable = false)
-          before enabling the greeter.
-        '';
-      }
-    ];
-  };
+      assertions = [
+        {
+          assertion = usingDefaultPackage || cfg.excludePackages == [ ];
+          message = ''
+            programs.singularity-desktop.excludePackages is only supported
+            with the Singularity desktop package provided by this flake.
+            Custom packages are monolithic and cannot have bundled
+            applications removed safely.
+          '';
+        }
+        {
+          assertion =
+            !(
+              gcfg.enable
+              && (
+                (config.services.displayManager.gdm.enable or false)
+                || (config.services.displayManager.sddm.enable or false)
+                || (config.services.xserver.displayManager.lightdm.enable or false)
+              )
+            );
+          message = ''
+            singularity-desktop.greeter launches its greeter through greetd,
+            which must own VT 1. Disable your current display manager
+            (services.displayManager.{gdm,sddm,lightdm}.enable = false)
+            before enabling the greeter.
+          '';
+        }
+      ];
+    })
+  ];
 }

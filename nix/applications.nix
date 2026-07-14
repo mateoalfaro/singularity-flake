@@ -1,0 +1,14 @@
+[
+  "files"
+  "calculator"
+  "calendar"
+  "edit"
+  "git"
+  "leafs"
+  "monitor"
+  "music"
+  "photos"
+  "store"
+  "videos"
+  "write"
+]

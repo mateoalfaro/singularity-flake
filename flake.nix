@@ -5,13 +5,13 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
     labwc-src = {
-      #url = "path:/home/jafed/singularity-flake/singularity-desktop/subprojects/labwc"; #used for local development
+      # url = "path:./singularity-desktop/subprojects/labwc"; # Local development
       url = "github:singularityos-lab/labwc";
       flake = false;
     };
 
     singularity-desktop-src = {
-      #url = "path:/home/jafed/singularity-flake/singularity-desktop"; #used for local development
+      # url = "path:./singularity-desktop"; # Local development
       url = "git+https://github.com/singularityos-lab/singularity-desktop.git?submodules=1";
       flake = false;
     };
@@ -37,414 +37,69 @@
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    labwc-src,
-    singularity-desktop-src,
-    singularity-shell-src,
-    singularity-session-src,
-    xdg-desktop-portal-singularity-src,
-    labwc-fork,
-  }: let
-    systems = [ "x86_64-linux" ];
-    forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
-    pkgsFor = system: nixpkgs.legacyPackages.${system};
-  in {
-    packages = forAllSystems (system: let
-      pkgs = pkgsFor system;
+  outputs =
+    inputs@{ self, nixpkgs, ... }:
+    let
+      systems = [ "x86_64-linux" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs systems f;
+      applicationIds = import ./nix/applications.nix;
+      applicationPackageNames = map (id: "singularity-${id}") applicationIds;
+    in
+    {
+      packages = forAllSystems (
+        system:
+        import ./nix/packages {
+          inherit nixpkgs applicationIds inputs;
+          pkgs = nixpkgs.legacyPackages.${system};
+        }
+      );
 
-      vetro = pkgs.buildGoModule rec {
-        pname = "vetro";
-        version = "0-unstable-2026-06-05";
+      checks = forAllSystems (
+        system:
+        import ./nix/checks {
+          inherit
+            self
+            nixpkgs
+            system
+            applicationIds
+            ;
+        }
+      );
 
-        src = pkgs.fetchFromGitHub {
-          owner = "singularityos-lab";
-          repo = "vetro";
-          rev = "0a7bd367676f67e1c15a304ba135fe6fecdbc604";
-          hash = "sha256-BxAmyP6IqmqHEBmxKIRw0QMt14y/0CMOUab546xVYyQ=";
+      overlays.default =
+        final: _prev:
+        builtins.listToAttrs (
+          map (name: {
+            inherit name;
+            value = self.packages.${final.stdenv.hostPlatform.system}.${name};
+          }) applicationPackageNames
+        )
+        // {
+          singularity-desktop = self.packages.${final.stdenv.hostPlatform.system}.default;
+          singularity-desktop-core =
+            self.packages.${final.stdenv.hostPlatform.system}.singularity-desktop-core;
         };
 
-        vendorHash = "sha256-BKIYil3eWmwqIUf/46LY426uBN7qrVaqWX3YvODj8gc=";
-
-        # Names that already start with "Singularity" are fully-qualified
-        # GObject type names; return them unchanged instead of prefixing "Gtk".
-        postPatch = ''
-          substituteInPlace internal/domain/vetro/utils.go \
-            --replace-fail \
-              $'\treturn gtkClassPrefix + name' \
-              $'\tif strings.HasPrefix(name, "Singularity") {\n\t\treturn name\n\t}\n\treturn gtkClassPrefix + name'
-        '';
-
-        meta = {
-          description = "Declarative GTK4 UI transpiler";
-          homepage = "https://github.com/singularityos-lab/vetro";
-          license = nixpkgs.lib.licenses.mit;
-        };
-      };
-
-      singularityLabwc = pkgs.stdenv.mkDerivation {
-        pname = "singularity-labwc";
-        version = "0-unstable-2026-06-15";
-
-        src = labwc-src;
-
-        nativeBuildInputs = with pkgs; [
-          meson
-          ninja
-          pkg-config
-          wayland-scanner
-          gettext
-          scdoc
-        ];
-
-        buildInputs = with pkgs; [
-          wlroots_0_20
-          wayland
-          wayland-protocols
-          libxkbcommon
-          libxcb
-          libxcb-wm
-          libxml2
-          glib
-          cairo
-          pango
-          libdrm
-          libinput
-          pixman
-          libpng
-          librsvg
-          libsfdo
-          xwayland
-        ];
-
-        mesonFlags = [
-          "-Dxwayland=enabled"
-          "-Dsystemd-session=disabled"
-        ];
-
-        meta = {
-          description = "Singularity fork of labwc (preview / tiling / blur Wayland protocols)";
-          homepage = "https://github.com/singularityos-lab/labwc";
-          license = nixpkgs.lib.licenses.gpl2Plus;
-          platforms = [ "x86_64-linux" ];
-          mainProgram = "labwc";
-        };
-      };
-
-      makeSingularityDesktop = {
-        pname ? "singularity-desktop",
-        src ? singularity-desktop-src,
-      }: let
-        runtimeBinPath = pkgs.lib.makeBinPath (with pkgs; [
-          coreutils
-          dbus
-          procps
-          systemd
-          xrdb
-          xsettingsd
-          xdg-user-dirs
-        ]);
-
-        runtimeLibraryPath = pkgs.lib.makeLibraryPath (with pkgs; [
-          libglvnd
-          mesa
-        ]);
-      in pkgs.stdenv.mkDerivation {
-        inherit pname src;
-        version = "0.1.0";
-
-        nativeBuildInputs = with pkgs; [
-          meson
-          ninja
-          vala
-          pkg-config
-          wayland-scanner
-          wayland-protocols
-          gettext
-          gobject-introspection
-          wrapGAppsHook4
-          qt6.wrapQtAppsHook
-          sassc
-          python3
-          vetro
-          desktop-file-utils
-        ];
-
-        buildInputs = with pkgs; [
-          gtk4
-          gtk4-layer-shell
-          wayland
-          networkmanager
-          upower
-          libpulseaudio
-          gnome-online-accounts
-          libadwaita
-          webkitgtk_6_0
-          libsecret
-          polkit
-          gnome-desktop
-          libsoup_3
-          json-glib
-          libpeas2
-          vte-gtk4
-          gtksourceview5
-          poppler
-          libdbusmenu
-          at-spi2-core
-          tinysparql
-          libgudev
-          libxcrypt
-          pam
-          hwdata
-          qt6.qtbase
-          glib
-          gst_all_1.gstreamer
-          gst_all_1.gst-plugins-base
-          libgcrypt
-          libgee
-          libsodium
-          libxcb
-          pipewire
-          cairo
-          pango
-          libpng
-          libxkbcommon
-        ];
-
-        patches = [
-          ./patches/singularity-greeter-session-wrapper.patch
-        ];
-
-        postPatch = ''
-          # Fix hardcoded /usr/lib paths for polkit-agent-1
-          substituteInPlace subprojects/singularity-shell/meson.build \
-            --replace-fail \
-              "cc.find_library('polkit-agent-1', dirs: ['/usr/lib/x86_64-linux-gnu', '/usr/lib'])" \
-              "dependency('polkit-agent-1')"
-
-          # Skip singularity-demo (vetro GIR template issue with AppSidebar)
-          substituteInPlace meson.build \
-            --replace-fail \
-              "subproject('singularity-demo')" \
-              "# subproject('singularity-demo')"
-
-          # singularity-store creates and installs its sidebar in Vala. The
-          # template sidebar is unused, and Vetro emits it as GtkAppSidebar
-          # without the libsingularity GIR metadata during the Nix build,
-          # which breaks the template and leaves main_stack null at runtime.
-          substituteInPlace subprojects/singularity-store/ui/main.vetro \
-            --replace-fail \
-              $'    AppSidebar(id: "sidebar_scroll", vexpand: true)\n\n' \
-              ""
-
-          # Don't try to install PAM file to /etc/pam.d (Nix sandbox)
-          substituteInPlace subprojects/singularity-shell/src/lockscreen/meson.build \
-            --replace-fail \
-              "install_dir: '/etc/pam.d'," \
-              "install_dir: get_option('prefix') / 'etc' / 'pam.d',"
-
-          # Make labwc findable via PATH in the session script
-          substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
-            --replace-fail \
-              '"$BIN/labwc"' \
-              'labwc'
-
-          substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
-            --replace-fail \
-              'export PATH="$BIN:$PATH"' \
-              'export PATH="$BIN:${runtimeBinPath}''${PATH:+:$PATH}"' \
-            --replace-fail \
-              'export LD_LIBRARY_PATH="$PREFIX/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
-              'export LD_LIBRARY_PATH="$PREFIX/lib:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
-
-          substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
-            --replace-fail \
-              'export PATH="$BIN:$PATH"' \
-              'export PATH="$BIN:${runtimeBinPath}''${PATH:+:$PATH}"' \
-            --replace-fail \
-              'export LD_LIBRARY_PATH="$LIB''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
-              'export LD_LIBRARY_PATH="$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
-            --replace-fail \
-              $'    QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
-              $'    XDG_DATA_DIRS \\' \
-            --replace-fail \
-              $'systemctl --user set-environment \\\n    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \\\n    QT_QPA_PLATFORMTHEME="$QT_QPA_PLATFORMTHEME" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" \\\n    GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR" 2>/dev/null || true' \
-              $'systemctl --user set-environment \\\n    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" 2>/dev/null || true'
-
-          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
-            --replace-fail \
-              '"/opt/local/share/backgrounds/singularity/default.png",' \
-              '"/opt/local/share/backgrounds/singularity/default.png", "'"$out"'/share/backgrounds/singularity/default.png",'
-
-          # load_sessions(): let the NixOS module point the greeter at the
-          # aggregated Wayland session desktop directory.
-          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
-            --replace-fail \
-              '    const char *dirs[] = {' \
-              '    const char *env_dir = getenv("SINGULARITY_GREETER_SESSION_DIR");
-    if (env_dir && !env_dir[0]) env_dir = NULL;
-    const char *dirs[] = {'
-
-          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
-            --replace-fail \
-              '        "/opt/local/share/wayland-sessions",' \
-              '        env_dir,
-        "/opt/local/share/wayland-sessions",'
-
-          # find_os_logo()
-          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
-            --replace-fail \
-              '"/opt/local/share/icons/hicolor/scalable/apps/%s.svg",' \
-              '"/run/current-system/sw/share/icons/hicolor/scalable/apps/%s.svg", "/opt/local/share/icons/hicolor/scalable/apps/%s.svg",'
-
-          substituteInPlace subprojects/singularity-splash/src/splash_main.c \
-            --replace-fail \
-              '"/opt/local/share/icons/hicolor/scalable/apps/%s.svg",' \
-              '"/run/current-system/sw/share/icons/hicolor/scalable/apps/%s.svg", "/opt/local/share/icons/hicolor/scalable/apps/%s.svg",'
-
-          # Custom greeter background from environment variables
-          substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
-            --replace-fail \
-              'cairo_surface_t *bg = NULL;' \
-              'cairo_surface_t *bg = NULL;
-    const char *env_bg = getenv("SINGULARITY_GREETER_BACKGROUND");
-    if (env_bg && env_bg[0]) {
-        bg = loginui_load_wallpaper(env_bg, 960);
-        if (bg) return bg;
-    }'
-        '';
-
-        postFixup = ''
-          # Copy the Singularity labwc fork into the output so $BIN/labwc resolves at session startup.
-          cp -r ${singularityLabwc}/bin/labwc $out/bin/
-
-          # Symlink polkit agent to bin/ so session script can find it
-          ln -sf $out/libexec/singularity-polkit-agent $out/bin/
-          ln -sf $out/libexec/singularity-polkit-auth-helper $out/bin/
-
-          # Compile GSettings schemas (meson install put them in a non-standard location)
-          mkdir -p $out/share/glib-2.0/schemas
-          schema_roots=$out/share/gsettings-schemas/*/glib-2.0/schemas
-          for schema_src in $schema_roots; do
-            [ -d "$schema_src" ] || continue
-            for f in "$schema_src"/*.gschema.xml; do
-              [ -e "$f" ] || continue
-              ln -sf "$f" $out/share/glib-2.0/schemas/
-            done
-          done
-          if [ ! -e $out/share/glib-2.0/schemas/dev.sinty.desktop.gschema.xml ]; then
-            echo "missing dev.sinty.desktop GSettings schema in $out/share/glib-2.0/schemas" >&2
-            exit 1
-          fi
-          ${pkgs.glib.dev}/bin/glib-compile-schemas $out/share/glib-2.0/schemas
-
-          # Modify systemd user units to use $out paths instead of hardcoded /opt/...
-          for systemd_user in $out/share/systemd/user $out/lib/systemd/user; do
-            [ -d "$systemd_user" ] || continue
-
-            if [ -f "$systemd_user/xdg-desktop-portal-singularity.service" ]; then
-              sed -i \
-                "s|^ExecStart=.*xdg-desktop-portal-singularity.*$|ExecStart=$out/libexec/xdg-desktop-portal-singularity|" \
-                "$systemd_user/xdg-desktop-portal-singularity.service"
-              grep -Fx "ExecStart=$out/libexec/xdg-desktop-portal-singularity" \
-                "$systemd_user/xdg-desktop-portal-singularity.service" >/dev/null
-            fi
-
-            if [ -f "$systemd_user/singularity-polkit-agent.service" ]; then
-              sed -i \
-                "s|^ExecStart=.*singularity-polkit-agent.*$|ExecStart=$out/libexec/singularity-polkit-agent|" \
-                "$systemd_user/singularity-polkit-agent.service"
-              grep -Fx "ExecStart=$out/libexec/singularity-polkit-agent" \
-                "$systemd_user/singularity-polkit-agent.service" >/dev/null
-            fi
-          done
-
-          mkdir -p $out/share/dbus-1/services
-          cat > $out/share/dbus-1/services/org.freedesktop.impl.portal.desktop.singularity.service << EOF
-          [D-BUS Service]
-          Name=org.freedesktop.impl.portal.desktop.singularity
-          Exec=$out/libexec/xdg-desktop-portal-singularity
-          SystemdService=xdg-desktop-portal-singularity.service
-          EOF
-
-          # Preferred portal routing for the "Singularity" desktop env
-          # (XDG_CURRENT_DESKTOP=Singularity, set by the session script).
-          # singularity.portal already advertises UseIn=Singularity, so
-          # xdg-desktop-portal will pick it automatically; this file makes the
-          # choice explicit and lets the Singularity impl be the first
-          # responder with the GTK impl as a fallback for any interface
-          # Singularity doesn't implement.
-          mkdir -p $out/share/xdg-desktop-portal
-          cat > $out/share/xdg-desktop-portal/singularity-portals.conf << EOF
-          [preferred]
-          default=singularity;gtk
-          EOF
-
-          # Build mimeinfo.cache so xdg-mime / GAppInfo resolve the bundled
-          # .desktop files (e.g. singularity-edit launches for text/plain). On
-          # NixOS this normally happens at the system-profile level, but
-          # because the session puts $out/share FIRST in XDG_DATA_DIRS we want
-          # a complete cache there too.
-          if [ -d $out/share/applications ] && [ -x ${pkgs.desktop-file-utils}/bin/update-desktop-database ]; then
-            ${pkgs.desktop-file-utils}/bin/update-desktop-database $out/share/applications
-          fi
-
-          # Register as a Wayland session for display managers
-          mkdir -p $out/share/wayland-sessions
-          cat > $out/share/wayland-sessions/singularity-desktop.desktop << EOF
-          [Desktop Entry]
-          Name=Singularity Desktop
-          Comment=Singularity Desktop Environment
-          Exec=$out/bin/singularity-labwc-session
-          DesktopNames=Singularity
-          Type=Application
-          EOF
-        '';
-
-        meta = {
-          description = "A Wayland desktop environment built on GTK4 and the labwc compositor";
-          homepage = "https://github.com/singularityos-lab/singularity-desktop";
-          license = nixpkgs.lib.licenses.gpl3Plus;
-          platforms = [ "x86_64-linux" ];
-          maintainers = [ ];
+      nixosModules = {
+        default = import ./nix/modules/singularity-desktop.nix {
+          package = pkgs: self.packages.${pkgs.stdenv.hostPlatform.system}.singularity-desktop-core;
+          applications =
+            pkgs: map (name: self.packages.${pkgs.stdenv.hostPlatform.system}.${name}) applicationPackageNames;
+          overlay = self.overlays.default;
+          defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.singularity-desktop-core";
         };
 
-        passthru.providedSessions = [ "singularity-desktop" ];
-      };
-    in {
-      default = makeSingularityDesktop { };
-
-      experimental = makeSingularityDesktop {
-        pname = "singularity-desktop-experimental";
-        src = pkgs.runCommand "singularity-desktop-experimental-src" { } ''
-          cp -R --no-preserve=mode,ownership ${singularity-desktop-src}/. $out
-
-          rm -rf $out/subprojects/singularity-shell
-          cp -R --no-preserve=mode,ownership ${singularity-shell-src} $out/subprojects/singularity-shell
-
-          rm -rf $out/subprojects/singularity-session
-          cp -R --no-preserve=mode,ownership ${singularity-session-src} $out/subprojects/singularity-session
-
-          rm -rf $out/subprojects/xdg-desktop-portal-singularity
-          cp -R --no-preserve=mode,ownership ${xdg-desktop-portal-singularity-src} $out/subprojects/xdg-desktop-portal-singularity
-
-          rm -rf $out/subprojects/labwc
-          cp -R --no-preserve=mode,ownership ${labwc-fork} $out/subprojects/labwc
-        '';
-      };
-    });
-
-    nixosModules = {
-      default = import ./nixos-module.nix {
-        package = pkgs: self.packages.${pkgs.system}.default;
-        defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.default";
-      };
-
-      experimental = import ./nixos-module.nix {
-        package = pkgs: self.packages.${pkgs.system}.experimental;
-        defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.experimental";
+        experimental = import ./nix/modules/singularity-desktop.nix {
+          package =
+            pkgs: self.packages.${pkgs.stdenv.hostPlatform.system}.singularity-desktop-experimental-core;
+          applications =
+            pkgs:
+            map (
+              name: self.packages.${pkgs.stdenv.hostPlatform.system}."${name}-experimental"
+            ) applicationPackageNames;
+          overlay = self.overlays.default;
+          defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.singularity-desktop-experimental-core";
+        };
       };
     };
-  };
 }

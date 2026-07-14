@@ -18,5 +18,8 @@ jobs:
       - name: Build singularity-desktop
         run: nix build .#default --print-build-logs
 
+      - name: Test package exclusions
+        run: nix build .#checks.x86_64-linux.module-options .#checks.x86_64-linux.package-layout --print-build-logs
+
       - name: Check flake
         run: nix flake check --no-build
