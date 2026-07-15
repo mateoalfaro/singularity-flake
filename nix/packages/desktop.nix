@@ -147,6 +147,9 @@ pkgs.stdenv.mkDerivation {
               'export LD_LIBRARY_PATH="$LIB''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
               'export LD_LIBRARY_PATH="$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
             --replace-fail \
+              'export GSETTINGS_SCHEMA_DIR="$SHARE/glib-2.0/schemas"' \
+              '# GSettings schemas are discovered through XDG_DATA_DIRS.' \
+            --replace-fail \
               $'    QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
               $'    XDG_DATA_DIRS \\' \
             --replace-fail \

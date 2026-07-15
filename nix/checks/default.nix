@@ -68,6 +68,9 @@ let
   failedCustomAssertions = builtins.filter (
     assertion: !assertion.assertion
   ) customConfiguration.assertions;
+  applicationPackages = map (
+    id: self.packages.${system}."singularity-${id}"
+  ) applicationIds;
 in
 {
   module-options =
@@ -91,12 +94,35 @@ in
         calculator = self.packages.${system}.singularity-calculator;
         calendar = self.packages.${system}.singularity-calendar;
         aggregate = self.packages.${system}.default;
+        applications = pkgs.lib.concatStringsSep " " applicationPackages;
       }
       ''
-        for app_id in ${pkgs.lib.concatStringsSep " " applicationIds}; do
+        app_ids=(${pkgs.lib.concatStringsSep " " applicationIds})
+        app_paths=($applications)
+
+        for index in "''${!app_ids[@]}"; do
+          app_id="''${app_ids[$index]}"
+          app_path="''${app_paths[$index]}"
+
           test ! -e "$core/bin/singularity-$app_id"
           test -x "$aggregate/bin/singularity-$app_id"
+
+          # Every split application wrapper must expose its own data directory.
+          grep -aF "$app_path/share" "$app_path/bin/singularity-$app_id" >/dev/null
+
+          # Outputs that ship a schema must also ship their compiled database.
+          if find "$app_path/share/glib-2.0/schemas" \
+            -name '*.gschema.xml' -print -quit 2>/dev/null | grep -q .; then
+            test -e "$app_path/share/glib-2.0/schemas/gschemas.compiled"
+          fi
         done
+
+        test -f "$core/bin/.singularity-desktop-session-wrapped"
+        if grep -F 'export GSETTINGS_SCHEMA_DIR=' \
+          "$core/bin/.singularity-desktop-session-wrapped"; then
+          echo "singularity-desktop-session exports GSETTINGS_SCHEMA_DIR" >&2
+          exit 1
+        fi
         test ! -e "$core/share/applications/dev.sinty.calculator.desktop"
         test -x "$calculator/bin/singularity-calculator"
         test -e "$calculator/share/applications/dev.sinty.calculator.desktop"

@@ -33,6 +33,11 @@ let
       pkgs.symlinkJoin {
         name = "${packageName}-${desktop.version}";
         paths = [ desktop.${id} ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram "$out/bin/${packageName}" \
+            --prefix XDG_DATA_DIRS : "$out/share"
+        '';
         passthru.singularityAppId = id;
         meta = desktop.meta // {
           description = "${packageName} application from Singularity Desktop";
