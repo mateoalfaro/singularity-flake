@@ -150,11 +150,8 @@ pkgs.stdenv.mkDerivation {
               'export GSETTINGS_SCHEMA_DIR="$SHARE/glib-2.0/schemas"' \
               '# GSettings schemas are discovered through XDG_DATA_DIRS.' \
             --replace-fail \
-              $'    QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
-              $'    XDG_DATA_DIRS \\' \
-            --replace-fail \
-              $'systemctl --user set-environment \\\n    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \\\n    QT_QPA_PLATFORMTHEME="$QT_QPA_PLATFORMTHEME" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" \\\n    GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR" 2>/dev/null || true' \
-              $'systemctl --user set-environment \\\n    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" 2>/dev/null || true'
+              $'    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
+              $'    XDG_DATA_DIRS \\'
 
           substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
             --replace-fail \
