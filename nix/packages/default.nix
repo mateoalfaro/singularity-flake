@@ -8,9 +8,13 @@
 let
   applicationPackageNames = map (id: "singularity-${id}") applicationIds;
   vetro = import ./vetro.nix { inherit pkgs nixpkgs; };
-  singularityLabwc = import ./labwc.nix {
+  defaultLabwc = import ./labwc.nix {
     inherit pkgs nixpkgs;
     src = inputs.labwc-src;
+  };
+  experimentalLabwc = import ./labwc.nix {
+    inherit pkgs nixpkgs;
+    src = inputs.labwc-fork;
   };
   makeSingularityDesktop = import ./desktop.nix {
     inherit
@@ -18,9 +22,25 @@ let
       nixpkgs
       applicationIds
       vetro
-      singularityLabwc
       ;
     greeterSessionWrapperPatch = ../../patches/singularity-greeter-session-wrapper.patch;
+    singularityDesktopRuntimePatch = ../../patches/singularity-desktop-runtime.patch;
+  };
+
+  applicationRuntimeProviders = {
+    files = with pkgs; [
+      libarchive
+      unzip
+      gnutar
+      zip
+    ];
+    git = [ pkgs.git ];
+    store = [ pkgs.flatpak ];
+    write = with pkgs; [
+      bash
+      zip
+      coreutils
+    ];
   };
 
   makeApplicationPackages =
@@ -29,14 +49,24 @@ let
       packageName:
       let
         id = pkgs.lib.removePrefix "singularity-" packageName;
+        providers = applicationRuntimeProviders.${id} or [ ];
       in
       pkgs.symlinkJoin {
         name = "${packageName}-${desktop.version}";
         paths = [ desktop.${id} ];
         nativeBuildInputs = [ pkgs.makeWrapper ];
         postBuild = ''
-          wrapProgram "$out/bin/${packageName}" \
-            --prefix XDG_DATA_DIRS : "$out/share"
+          wrapper_args=(
+            --prefix XDG_DATA_DIRS :
+            "$out/share"
+          )
+          ${pkgs.lib.optionalString (providers != [ ]) ''
+            wrapper_args+=(
+              --prefix PATH :
+              "${pkgs.lib.makeBinPath providers}"
+            )
+          ''}
+          wrapProgram "$out/bin/${packageName}" "''${wrapper_args[@]}"
         '';
         passthru.singularityAppId = id;
         meta = desktop.meta // {
@@ -69,11 +99,13 @@ let
 
   defaultDesktop = makeSingularityDesktop {
     src = inputs.singularity-desktop-src;
+    labwcPackage = defaultLabwc;
   };
   defaultApplications = makeApplicationPackages defaultDesktop;
 
   experimentalDesktop = makeSingularityDesktop {
     pname = "singularity-desktop-experimental";
+    labwcPackage = experimentalLabwc;
     src = pkgs.runCommand "singularity-desktop-experimental-src" { } ''
       cp -R --no-preserve=mode,ownership ${inputs.singularity-desktop-src}/. $out
 

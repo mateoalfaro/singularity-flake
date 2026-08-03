@@ -136,7 +136,7 @@ package must provide the same runtime interface as the default package:
 - `singularity-shell-src` — tracks `git@github.com:mateoalfaro/singularity-shell.git` for `packages.experimental` and `nixosModules.experimental`.
 - `singularity-session-src` — tracks `git@github.com:mateoalfaro/singularity-session.git` for `packages.experimental` and `nixosModules.experimental`.
 - `xdg-desktop-portal-singularity-src` — tracks `git@github.com:mateoalfaro/xdg-desktop-portal-singularity.git` for `packages.experimental` and `nixosModules.experimental`.
-- `labwc-fork` — tracks `git@github.com:mateoalfaro/xdg-desktop-portal-singularity.git` for `packages.experimental` and `nixosModules.experimental`.
+- `labwc-fork` — tracks `git@github.com:mateoalfaro/labwc.git` for `packages.experimental` and `nixosModules.experimental`.
 
 ## Updating inputs
 

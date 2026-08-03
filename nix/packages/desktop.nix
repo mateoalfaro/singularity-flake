@@ -3,21 +3,27 @@
   nixpkgs,
   applicationIds,
   vetro,
-  singularityLabwc,
   greeterSessionWrapperPatch,
+  singularityDesktopRuntimePatch,
 }:
 {
   pname ? "singularity-desktop",
   src,
+  labwcPackage,
 }:
 let
   runtimeBinPath = pkgs.lib.makeBinPath (
     with pkgs;
     [
+      bash
       coreutils
       dbus
+      hyprpicker
+      libnotify
+      networkmanager
       procps
       systemd
+      wl-clipboard
       xrdb
       xsettingsd
       xdg-user-dirs
@@ -95,7 +101,10 @@ pkgs.stdenv.mkDerivation {
     libxkbcommon
   ];
 
-  patches = [ greeterSessionWrapperPatch ];
+  patches = [
+    greeterSessionWrapperPatch
+    singularityDesktopRuntimePatch
+  ];
 
   postPatch = ''
           # Fix hardcoded /usr/lib paths for polkit-agent-1
@@ -125,11 +134,31 @@ pkgs.stdenv.mkDerivation {
               "install_dir: '/etc/pam.d'," \
               "install_dir: get_option('prefix') / 'etc' / 'pam.d',"
 
+          # Resolve the labwc configuration from this package's prefix rather
+          # than from the host filesystem. Do this before replacing the
+          # explicit binary path with the PATH lookup below, since the
+          # experimental session source does not pass a config directory.
+          if grep -Fq -- '-C /usr/share/singularity/labwc' \
+            subprojects/singularity-session/src/singularity-labwc-session; then
+            substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
+              --replace-fail \
+                '-C /usr/share/singularity/labwc' \
+                '-C "$PREFIX/share/singularity/labwc"'
+          elif ! grep -Fq -- ' -C ' \
+            subprojects/singularity-session/src/singularity-labwc-session; then
+            substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
+              --replace-fail \
+                '"$BIN/labwc" -s' \
+                '"$BIN/labwc" -C "$PREFIX/share/singularity/labwc" -s'
+          fi
+
           # Make labwc findable via PATH in the session script
           substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
             --replace-fail \
               '"$BIN/labwc"' \
               'labwc'
+          grep -Fq -- '-C "$PREFIX/share/singularity/labwc"' \
+            subprojects/singularity-session/src/singularity-labwc-session
 
           substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
             --replace-fail \
@@ -148,10 +177,58 @@ pkgs.stdenv.mkDerivation {
               'export LD_LIBRARY_PATH="$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
             --replace-fail \
               'export GSETTINGS_SCHEMA_DIR="$SHARE/glib-2.0/schemas"' \
-              '# GSettings schemas are discovered through XDG_DATA_DIRS.' \
-            --replace-fail \
-              $'    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
-              $'    XDG_DATA_DIRS \\'
+              '# GSettings schemas are discovered through XDG_DATA_DIRS.'
+          # Keep only XDG_DATA_DIRS in the activation environment. The
+          # experimental session source omits GTK_USE_PORTAL from this block.
+          if grep -Fq -- '    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME' \
+            subprojects/singularity-session/src/singularity-desktop-session; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+              --replace-fail \
+                $'    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
+                $'    XDG_DATA_DIRS \\'
+          elif grep -Fq -- '    QT_QPA_PLATFORMTHEME' \
+            subprojects/singularity-session/src/singularity-desktop-session; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+              --replace-fail \
+                $'    QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
+                $'    XDG_DATA_DIRS \\'
+          else
+            echo "unsupported singularity-desktop-session activation environment block" >&2
+            exit 1
+          fi
+
+          # The experimental session also propagates wrapper-specific
+          # variables to user services. Keep only the session identity and
+          # data directory there.
+          if grep -Fq -- 'systemctl --user set-environment' \
+            subprojects/singularity-session/src/singularity-desktop-session; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+              --replace-fail \
+                $'    QT_QPA_PLATFORMTHEME="$QT_QPA_PLATFORMTHEME" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" \\\n    GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR" 2>/dev/null || true' \
+                $'    XDG_DATA_DIRS="$XDG_DATA_DIRS" 2>/dev/null || true'
+
+            grep -Fq -- '    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP"' \
+              subprojects/singularity-session/src/singularity-desktop-session
+            grep -Fq -- '    XDG_DATA_DIRS="$XDG_DATA_DIRS"' \
+              subprojects/singularity-session/src/singularity-desktop-session
+            if grep -Fq -- '    QT_QPA_PLATFORMTHEME="$QT_QPA_PLATFORMTHEME"' \
+              subprojects/singularity-session/src/singularity-desktop-session \
+              || grep -Fq -- '    GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR"' \
+              subprojects/singularity-session/src/singularity-desktop-session; then
+              echo "forbidden wrapper-specific variable remains in systemctl environment" >&2
+              exit 1
+            fi
+          fi
+
+          grep -Fq -- '    XDG_DATA_DIRS' \
+            subprojects/singularity-session/src/singularity-desktop-session
+          for forbidden in GSETTINGS_SCHEMA_DIR GI_TYPELIB_PATH LD_LIBRARY_PATH QT_QPA_PLATFORMTHEME; do
+            if grep -Fq -- "    $forbidden" \
+              subprojects/singularity-session/src/singularity-desktop-session; then
+              echo "forbidden variable remains in dbus activation environment" >&2
+              exit 1
+            fi
+          done
 
           substituteInPlace subprojects/singularity-greeter/src/greeter_main.c \
             --replace-fail \
@@ -194,6 +271,38 @@ pkgs.stdenv.mkDerivation {
         bg = loginui_load_wallpaper(env_bg, 960);
         if (bg) return bg;
     }'
+
+          # Use Nix-provided data files instead of host absolute paths.
+          substituteInPlace subprojects/libsingularity/src/system/locale_manager.vala \
+            --replace-fail \
+              '"/usr/share/i18n/SUPPORTED"' \
+              '"${pkgs.glibcLocales}/share/i18n/SUPPORTED"'
+
+          substituteInPlace subprojects/libsingularity/src/system/timezone_util.vala \
+            --replace-fail \
+              '"/usr/share/zoneinfo' \
+              '"${pkgs.tzdata}/share/zoneinfo'
+
+          substituteInPlace subprojects/libsingularity/src/system/input_source_util.vala \
+            --replace-fail \
+              'string[] paths = {' \
+              'string[] paths = {
+                "${pkgs.xkeyboard_config}/share/X11/xkb/rules/evdev.lst",'
+
+          substituteInPlace subprojects/singularity-shell/src/components/sidebar/widgets/developer_page.vala \
+            --replace-fail \
+              '"/usr/bin/tail"' \
+              '"tail"'
+
+          substituteInPlace subprojects/singularity-shell/src/components/run_dialog/run_dialog.vala \
+            --replace-fail \
+              '"/bin/bash"' \
+              '"bash"'
+
+          substituteInPlace subprojects/singularity-shell/src/components/run_dialog/run_dialog.vala \
+            --replace-fail \
+              '#!/bin/bash' \
+              '#!${pkgs.bash}/bin/bash'
   '';
 
   # Split user-facing applications out of the desktop/session output so
@@ -225,6 +334,17 @@ pkgs.stdenv.mkDerivation {
       move_application_files "${id}" "${id}"
     '') applicationIds}
 
+    # These icons belong to singularity-files, rather than the core desktop
+    # output, even though their names do not carry the application id.
+    files_icon_dir="$out/share/icons/hicolor/scalable/apps"
+    files_icon_output="$files/share/icons/hicolor/scalable/apps"
+    mkdir -p "$files_icon_output"
+    for icon in ush-penguin.svg ush-penguin-symbolic.svg; do
+      if [ -e "$files_icon_dir/$icon" ] || [ -L "$files_icon_dir/$icon" ]; then
+        mv "$files_icon_dir/$icon" "$files_icon_output/"
+      fi
+    done
+
     # The editor's tree-sitter query files have language-based names,
     # so move their containing directory explicitly.
     if [ -d "$out/share/singularity-edit" ]; then
@@ -235,7 +355,7 @@ pkgs.stdenv.mkDerivation {
 
   postFixup = ''
     # Copy the Singularity labwc fork into the output so $BIN/labwc resolves at session startup.
-    cp -r ${singularityLabwc}/bin/labwc $out/bin/
+    cp -r ${labwcPackage}/bin/labwc $out/bin/
 
     # Symlink polkit agent to bin/ so session script can find it
     ln -sf $out/libexec/singularity-polkit-agent $out/bin/
@@ -331,7 +451,11 @@ pkgs.stdenv.mkDerivation {
     license = nixpkgs.lib.licenses.gpl3Plus;
     platforms = [ "x86_64-linux" ];
     maintainers = [ ];
+    mainProgram = "singularity-desktop";
   };
 
-  passthru.providedSessions = [ "singularity-desktop" ];
+  passthru = {
+    providedSessions = [ "singularity-desktop" ];
+    inherit labwcPackage;
+  };
 }

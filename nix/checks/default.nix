@@ -68,12 +68,14 @@ let
   failedCustomAssertions = builtins.filter (
     assertion: !assertion.assertion
   ) customConfiguration.assertions;
-  applicationPackages = map (
-    id: self.packages.${system}."singularity-${id}"
-  ) applicationIds;
+  applicationPackages = map (id: self.packages.${system}."singularity-${id}") applicationIds;
 in
 {
   module-options =
+    assert self.packages.${system}.default.meta.mainProgram == "singularity-desktop";
+    assert
+      self.packages.${system}.default.passthru.labwcPackage.outPath
+      != self.packages.${system}.experimental.passthru.labwcPackage.outPath;
     assert builtins.length defaultIds == builtins.length applicationIds;
     assert builtins.all (id: builtins.elem id defaultIds) applicationIds;
     assert builtins.length excludedIds == builtins.length applicationIds - 2;
@@ -93,6 +95,10 @@ in
         core = self.packages.${system}.singularity-desktop-core;
         calculator = self.packages.${system}.singularity-calculator;
         calendar = self.packages.${system}.singularity-calendar;
+        files = self.packages.${system}.singularity-files;
+        git = self.packages.${system}.singularity-git;
+        store = self.packages.${system}.singularity-store;
+        write = self.packages.${system}.singularity-write;
         aggregate = self.packages.${system}.default;
         applications = pkgs.lib.concatStringsSep " " applicationPackages;
       }
@@ -130,6 +136,55 @@ in
           "$(readlink -f "$core/share/applications/mimeinfo.cache")"
         test "$(readlink -f "$calendar/share/glib-2.0/schemas/gschemas.compiled")" != \
           "$(readlink -f "$core/share/glib-2.0/schemas/gschemas.compiled")"
+        test -e "$files/share/icons/hicolor/scalable/apps/ush-penguin.svg"
+        test -e "$files/share/icons/hicolor/scalable/apps/ush-penguin-symbolic.svg"
+        test ! -e "$core/share/icons/hicolor/scalable/apps/ush-penguin.svg"
+        test ! -e "$core/share/icons/hicolor/scalable/apps/ush-penguin-symbolic.svg"
+
+        # The session must use its own prefix for the labwc configuration.
+        labwc_session="$core/bin/.singularity-labwc-session-wrapped"
+        test -f "$labwc_session"
+        if grep -F -- '-C /usr/share/singularity/labwc' "$labwc_session" >/dev/null; then
+          echo "singularity-labwc-session still uses /usr/share config path" >&2
+          exit 1
+        fi
+        grep -F -- '-C "$PREFIX/share/singularity/labwc"' "$labwc_session" >/dev/null
+
+        # Core command providers must be embedded in the session PATH.
+        for provider in \
+          "${pkgs.bash}/bin" \
+          "${pkgs.networkmanager}/bin" \
+          "${pkgs.wl-clipboard}/bin" \
+          "${pkgs.libnotify}/bin" \
+          "${pkgs.hyprpicker}/bin"; do
+          grep -aF "$provider" "$labwc_session" >/dev/null
+        done
+
+        # Verify the source-level absolute data paths were replaced by Nix
+        # store paths in the built core.
+        for fixed_path in \
+          "${pkgs.glibcLocales}/share/i18n/SUPPORTED" \
+          "${pkgs.tzdata}/share/zoneinfo" \
+          "${pkgs.xkeyboard_config}/share/X11/xkb/rules/evdev.lst"; do
+          grep -R -aF "$fixed_path" "$core" >/dev/null
+        done
+
+        # Split application wrappers expose only the runtime tools they need.
+        grep -aF "${pkgs.git}/bin" "$git/bin/singularity-git" >/dev/null
+        grep -aF "${pkgs.flatpak}/bin" "$store/bin/singularity-store" >/dev/null
+        for provider in "${pkgs.bash}/bin" "${pkgs.zip}/bin" "${pkgs.coreutils}/bin"; do
+          grep -aF "$provider" "$write/bin/singularity-write" >/dev/null
+        done
+        for provider in "${pkgs.libarchive}/bin" "${pkgs.unzip}/bin" "${pkgs.gnutar}/bin" "${pkgs.zip}/bin"; do
+          grep -aF "$provider" "$files/bin/singularity-files" >/dev/null
+        done
+
+        # The nested session startup script must use Nix's Bash interpreter.
+        grep -R -aF "${pkgs.bash}/bin/bash" "$core/bin" >/dev/null
+        if grep -R -aF '#!/bin/bash' "$core/bin" >/dev/null; then
+          echo "literal /bin/bash shebang remains in the core" >&2
+          exit 1
+        fi
         test -x "$aggregate/bin/singularity-desktop"
         touch $out
       '';
