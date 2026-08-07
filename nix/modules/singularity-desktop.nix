@@ -30,12 +30,12 @@ let
     ]
   );
 
-  # Shared VM cursor detection
-  vmCursorProbe = ''
+  # Shared cursor detection
+  cursorProbe = ''
     for drv in /sys/class/drm/card[0-9]*/device/driver; do
         [ -e "$drv" ] || continue
         case "$(basename "$(readlink -f "$drv")")" in
-            virtio*|qxl|vmwgfx|bochs-drm|cirrus|vboxvideo|simpledrm)
+            virtio*|qxl|vmwgfx|bochs-drm|cirrus|vboxvideo|simpledrm|nvidia*)
                 export WLR_NO_HARDWARE_CURSORS="''${WLR_NO_HARDWARE_CURSORS:-1}"
                 break ;;
         esac
@@ -164,13 +164,13 @@ let
     export GTK_A11Y=none
     export SINGULARITY_GREETER_SESSION_DIR="${config.services.displayManager.sessionData.desktops}/share/wayland-sessions"
     export SINGULARITY_GREETER_SESSION_LAUNCHER="${session-launcher}"
-    ${vmCursorProbe}
+    ${cursorProbe}
     exec "${cfg.package}/bin/singularity-greeter"
   '';
 
   start-greeter = pkgs.writeShellScript "singularity-start-greeter" ''
     export PATH="${cfg.package}/bin:''${PATH:+:$PATH}"
-    ${vmCursorProbe}
+    ${cursorProbe}
     ${lib.optionalString (gcfg.background != null) ''
       export SINGULARITY_GREETER_BACKGROUND="${gcfg.background}"
     ''}
@@ -268,6 +268,8 @@ in
       environment.systemPackages = lib.mkIf usingDefaultPackage enabledDefaultApplications;
 
       systemd.packages = [ cfg.package ];
+
+      programs.dconf.enable = true;
 
       xdg.portal = {
         enable = true;
