@@ -1,11 +1,7 @@
 diff --git a/subprojects/libsingularity/src/core/overview_widget_registry.vala b/subprojects/libsingularity/src/core/overview_widget_registry.vala
 --- a/subprojects/libsingularity/src/core/overview_widget_registry.vala
 +++ b/subprojects/libsingularity/src/core/overview_widget_registry.vala
-@@ -165,20 +165,24 @@ namespace Singularity {
-         private string? resolve_module(string manifest_path, string module) {
-             if (Path.is_absolute(module) &&
-                 FileUtils.test(module, FileTest.EXISTS))
-                 return module;
+@@ -169,8 +169,12 @@
              string dir = Path.get_dirname(manifest_path);
              string cand = Path.build_filename(dir, module);
              if (FileUtils.test(cand, FileTest.EXISTS)) return cand;
@@ -16,17 +12,9 @@ diff --git a/subprojects/libsingularity/src/core/overview_widget_registry.vala b
              string[] roots = {
 +                Path.build_filename(prefix, "lib", "singularity", "widgets"),
 +                Path.build_filename(prefix, "lib64", "singularity", "widgets"),
+                 "/usr/lib/singularity/widgets",
+                 "/usr/lib64/singularity/widgets",
                  "/opt/local/lib/singularity/widgets",
-                 "/opt/local/lib64/singularity/widgets",
-                 Path.build_filename(Environment.get_user_data_dir(),
-                     "singularity", "widgets")
-             };
-             foreach (var r in roots) {
-                 cand = Path.build_filename(r, module);
-                 if (FileUtils.test(cand, FileTest.EXISTS)) return cand;
-             }
-             return null;
-         }
 diff --git a/subprojects/libsingularity/src/style/style_manager.vala b/subprojects/libsingularity/src/style/style_manager.vala
 --- a/subprojects/libsingularity/src/style/style_manager.vala
 +++ b/subprojects/libsingularity/src/style/style_manager.vala

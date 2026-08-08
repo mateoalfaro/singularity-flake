@@ -11,6 +11,7 @@ let
   defaultLabwc = import ./labwc.nix {
     inherit pkgs nixpkgs;
     src = inputs.labwc-src;
+    patches = [ ../../patches/labwc-posix-clock.patch ];
   };
   experimentalLabwc = import ./labwc.nix {
     inherit pkgs nixpkgs;
