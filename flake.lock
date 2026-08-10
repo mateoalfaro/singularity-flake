@@ -20,11 +20,11 @@
     "labwc-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1786037093,
-        "narHash": "sha256-xd/tEHeCrHU0g2jsbtFUXOTvVYuzg9dWdNr2qJOAskc=",
+        "lastModified": 1786374799,
+        "narHash": "sha256-siHfvNy6NHNtyqU47ckl8rQASs6S30HgCW/RQZJsycU=",
         "owner": "singularityos-lab",
         "repo": "labwc",
-        "rev": "fadf242a658ec8f40f81fda4033f609075253129",
+        "rev": "19ac4d98e0881166b8d2085b15fc3fb5883e243b",
         "type": "github"
       },
       "original": {
@@ -63,11 +63,11 @@
     "singularity-desktop-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1786277746,
-        "narHash": "sha256-/XbAXHFeUcuCjn0/gKUcu8ei1tNHUnAtnKfzRcF0g3A=",
+        "lastModified": 1786375149,
+        "narHash": "sha256-7q2ufTifparoae8e5xGm15vCnqnB6yrj/S7sR+lLl1E=",
         "ref": "refs/heads/master",
-        "rev": "860edf9daa631087578eab5f0787d9f35332a4d8",
-        "revCount": 177,
+        "rev": "f407e8da417510e5840b9c3cfd49982dca1a69f7",
+        "revCount": 205,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"
