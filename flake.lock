@@ -35,11 +35,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1786106723,
-        "narHash": "sha256-zDSUbpoeo/9ZmD2+wXnzxoo1+uhL8vxc0b8yuYMKYq0=",
+        "lastModified": 1786247143,
+        "narHash": "sha256-8S3Kcxs7D4UtxJxSJZz0m14CGhuW0MxfrIwJxeGWGnQ=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "f13ff45afd1bb73e640eaa08a7066dbed07e3238",
+        "rev": "279b4a8275f032c566576b3f181fa0f27197f588",
         "type": "github"
       },
       "original": {
@@ -63,19 +63,11 @@
     "singularity-desktop-src": {
       "flake": false,
       "locked": {
-<<<<<<< Updated upstream
-        "lastModified": 1786277746,
-        "narHash": "sha256-/XbAXHFeUcuCjn0/gKUcu8ei1tNHUnAtnKfzRcF0g3A=",
-        "ref": "refs/heads/master",
-        "rev": "860edf9daa631087578eab5f0787d9f35332a4d8",
-        "revCount": 177,
-=======
         "lastModified": 1786375149,
         "narHash": "sha256-7q2ufTifparoae8e5xGm15vCnqnB6yrj/S7sR+lLl1E=",
         "ref": "refs/heads/master",
         "rev": "f407e8da417510e5840b9c3cfd49982dca1a69f7",
         "revCount": 205,
->>>>>>> Stashed changes
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"
