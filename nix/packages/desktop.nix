@@ -179,8 +179,15 @@ pkgs.stdenv.mkDerivation {
               'export GSETTINGS_SCHEMA_DIR="$SHARE/glib-2.0/schemas"' \
               '# GSettings schemas are discovered through XDG_DATA_DIRS.'
           # Keep only XDG_DATA_DIRS in the activation environment. The
-          # experimental session source omits GTK_USE_PORTAL from this block.
-          if grep -Fq -- '    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME' \
+          # experimental session source omits GTK_USE_PORTAL from this block,
+          # and upstream variants add QT_QPA_PLATFORM between the two.
+          if grep -Fq -- '    GTK_USE_PORTAL QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME' \
+            subprojects/singularity-session/src/singularity-desktop-session; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+              --replace-fail \
+                $'    GTK_USE_PORTAL QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
+                $'    XDG_DATA_DIRS \\'
+          elif grep -Fq -- '    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME' \
             subprojects/singularity-session/src/singularity-desktop-session; then
             substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
               --replace-fail \
@@ -222,7 +229,7 @@ pkgs.stdenv.mkDerivation {
 
           grep -Fq -- '    XDG_DATA_DIRS' \
             subprojects/singularity-session/src/singularity-desktop-session
-          for forbidden in GSETTINGS_SCHEMA_DIR GI_TYPELIB_PATH LD_LIBRARY_PATH QT_QPA_PLATFORMTHEME; do
+          for forbidden in GSETTINGS_SCHEMA_DIR GI_TYPELIB_PATH LD_LIBRARY_PATH QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME; do
             if grep -Fq -- "    $forbidden" \
               subprojects/singularity-session/src/singularity-desktop-session; then
               echo "forbidden variable remains in dbus activation environment" >&2
