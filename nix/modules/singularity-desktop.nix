@@ -269,6 +269,14 @@ in
 
       systemd.packages = [ cfg.package ];
 
+      systemd.user.targets.singularity-session = {
+        description = "Singularity compositor session";
+        documentation = [ "man:systemd.special(7)" ];
+        bindsTo = [ "graphical-session.target" ];
+        wants = [ "graphical-session-pre.target" ];
+        after = [ "graphical-session-pre.target" ];
+      };
+
       programs.dconf.enable = true;
 
       xdg.portal = {

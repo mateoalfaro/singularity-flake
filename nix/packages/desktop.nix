@@ -134,22 +134,20 @@ pkgs.stdenv.mkDerivation {
               "install_dir: '/etc/pam.d'," \
               "install_dir: get_option('prefix') / 'etc' / 'pam.d',"
 
-          # Resolve the labwc configuration from this package's prefix rather
-          # than from the host filesystem. Do this before replacing the
-          # explicit binary path with the PATH lookup below, since the
-          # experimental session source does not pass a config directory.
+          # labwc must use the XDG config search path. The shell writes its
+          # live rc.xml, environment and themerc-override to ~/.config/labwc;
+          # passing -C makes labwc ignore all of them.
           if grep -Fq -- '-C /usr/share/singularity/labwc' \
             subprojects/singularity-session/src/singularity-labwc-session; then
             substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
               --replace-fail \
-                '-C /usr/share/singularity/labwc' \
-                '-C "$PREFIX/share/singularity/labwc"'
-          elif ! grep -Fq -- ' -C ' \
+                ' -C /usr/share/singularity/labwc' \
+                ""
+          fi
+          if grep -Fq -- ' -C ' \
             subprojects/singularity-session/src/singularity-labwc-session; then
-            substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
-              --replace-fail \
-                '"$BIN/labwc" -s' \
-                '"$BIN/labwc" -C "$PREFIX/share/singularity/labwc" -s'
+            echo "unexpected labwc -C config pin remains" >&2
+            exit 1
           fi
 
           # Make labwc findable via PATH in the session script
@@ -157,9 +155,6 @@ pkgs.stdenv.mkDerivation {
             --replace-fail \
               '"$BIN/labwc"' \
               'labwc'
-          grep -Fq -- '-C "$PREFIX/share/singularity/labwc"' \
-            subprojects/singularity-session/src/singularity-labwc-session
-
           substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
             --replace-fail \
               'export PATH="$BIN:$PATH"' \
@@ -226,6 +221,20 @@ pkgs.stdenv.mkDerivation {
               exit 1
             fi
           fi
+
+          if ! grep -Fq -- 'systemctl --user start singularity-session.target' \
+            subprojects/singularity-session/src/singularity-desktop-session; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+              --replace-fail \
+                '# Restart the portal so it picks up the live session environment, but do NOT' \
+                $'systemctl --user start singularity-session.target 2>/dev/null || true\n\n# Restart the portal so it picks up the live session environment, but do NOT'
+          fi
+          grep -Fq -- 'systemctl --user start singularity-session.target' \
+            subprojects/singularity-session/src/singularity-desktop-session
+          substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+            --replace-fail \
+              'trap "rm -f $_SPID" EXIT' \
+              "trap 'systemctl --user stop singularity-session.target 2>/dev/null || true; rm -f \"\$_SPID\"' EXIT"
 
           grep -Fq -- '    XDG_DATA_DIRS' \
             subprojects/singularity-session/src/singularity-desktop-session

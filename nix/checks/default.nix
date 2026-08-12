@@ -68,6 +68,7 @@ let
   failedCustomAssertions = builtins.filter (
     assertion: !assertion.assertion
   ) customConfiguration.assertions;
+  singularitySessionTarget = defaultConfiguration.systemd.user.targets.singularity-session;
   applicationPackages = map (id: self.packages.${system}."singularity-${id}") applicationIds;
 in
 {
@@ -85,6 +86,8 @@ in
     assert !(builtins.elem "calculator" experimentalIds);
     assert !(builtins.elem "music" experimentalIds);
     assert builtins.length failedCustomAssertions >= 1;
+    assert singularitySessionTarget.bindsTo == [ "graphical-session.target" ];
+    assert singularitySessionTarget.wants == [ "graphical-session-pre.target" ];
     pkgs.runCommand "singularity-desktop-module-options" { } ''
       touch $out
     '';
@@ -141,14 +144,20 @@ in
         test ! -e "$core/share/icons/hicolor/scalable/apps/ush-penguin.svg"
         test ! -e "$core/share/icons/hicolor/scalable/apps/ush-penguin-symbolic.svg"
 
-        # The session must use its own prefix for the labwc configuration.
+        # The shell owns ~/.config/labwc. Pinning -C makes labwc ignore its
+        # generated keybindings, cursor environment and theme overrides.
         labwc_session="$core/bin/.singularity-labwc-session-wrapped"
         test -f "$labwc_session"
-        if grep -F -- '-C /usr/share/singularity/labwc' "$labwc_session" >/dev/null; then
-          echo "singularity-labwc-session still uses /usr/share config path" >&2
+        if grep -F -- ' -C ' "$labwc_session" >/dev/null; then
+          echo "singularity-labwc-session still pins a -C config directory" >&2
           exit 1
         fi
-        grep -F -- '-C "$PREFIX/share/singularity/labwc"' "$labwc_session" >/dev/null
+
+        desktop_session="$core/bin/.singularity-desktop-session-wrapped"
+        grep -F -- 'systemctl --user start singularity-session.target' \
+          "$desktop_session" >/dev/null
+        grep -F -- 'systemctl --user stop singularity-session.target' \
+          "$desktop_session" >/dev/null
 
         # Core command providers must be embedded in the session PATH.
         for provider in \
