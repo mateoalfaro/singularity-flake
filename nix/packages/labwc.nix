@@ -2,14 +2,13 @@
   pkgs,
   nixpkgs,
   src,
-  patches ? [ ],
 }:
 
 pkgs.stdenv.mkDerivation {
   pname = "singularity-labwc";
   version = "0-unstable-2026-06-15";
 
-  inherit src patches;
+  inherit src;
 
   nativeBuildInputs = with pkgs; [
     meson
