@@ -1,11 +1,7 @@
 diff --git a/subprojects/libsingularity/src/core/overview_widget_registry.vala b/subprojects/libsingularity/src/core/overview_widget_registry.vala
 --- a/subprojects/libsingularity/src/core/overview_widget_registry.vala
 +++ b/subprojects/libsingularity/src/core/overview_widget_registry.vala
-@@ -165,20 +165,24 @@ namespace Singularity {
-         private string? resolve_module(string manifest_path, string module) {
-             if (Path.is_absolute(module) &&
-                 FileUtils.test(module, FileTest.EXISTS))
-                 return module;
+@@ -169,8 +169,12 @@ namespace Singularity {
              string dir = Path.get_dirname(manifest_path);
              string cand = Path.build_filename(dir, module);
              if (FileUtils.test(cand, FileTest.EXISTS)) return cand;
@@ -16,21 +12,15 @@ diff --git a/subprojects/libsingularity/src/core/overview_widget_registry.vala b
              string[] roots = {
 +                Path.build_filename(prefix, "lib", "singularity", "widgets"),
 +                Path.build_filename(prefix, "lib64", "singularity", "widgets"),
+                 "/usr/lib/singularity/widgets",
+                 "/usr/lib64/singularity/widgets",
                  "/opt/local/lib/singularity/widgets",
-                 "/opt/local/lib64/singularity/widgets",
-                 Path.build_filename(Environment.get_user_data_dir(),
-                     "singularity", "widgets")
-             };
-             foreach (var r in roots) {
-                 cand = Path.build_filename(r, module);
-                 if (FileUtils.test(cand, FileTest.EXISTS)) return cand;
-             }
-             return null;
-         }
 diff --git a/subprojects/libsingularity/src/style/style_manager.vala b/subprojects/libsingularity/src/style/style_manager.vala
 --- a/subprojects/libsingularity/src/style/style_manager.vala
 +++ b/subprojects/libsingularity/src/style/style_manager.vala
-@@ -707,15 +707,9 @@ namespace Singularity.Style {
+@@ -705,13 +705,7 @@ namespace Singularity.Style {
+          * `/usr/local/share/themes`, `/usr/share/themes`.
+          */
          public static string? find_theme_dir(string theme_name) {
 -            string[] dirs = {
 -                GLib.Path.build_filename(GLib.Environment.get_home_dir(), ".local", "share", "themes"),
@@ -43,14 +33,10 @@ diff --git a/subprojects/libsingularity/src/style/style_manager.vala b/subprojec
                  string candidate = GLib.Path.build_filename(dir, theme_name);
                  string css = GLib.Path.build_filename(candidate, "singularity", "style.css");
                  if (GLib.FileUtils.test(css, GLib.FileTest.EXISTS))
-                     return candidate;
-             }
+@@ -720,19 +714,34 @@ namespace Singularity.Style {
              return null;
          }
-@@ -721,4 +721,25 @@ namespace Singularity.Style {
-         }
--
-+
+ 
 +        /**
 +         * Returns theme directories in preference order without duplicate
 +         * paths. The XDG system data directories include Nix store shares.
@@ -74,7 +60,8 @@ diff --git a/subprojects/libsingularity/src/style/style_manager.vala b/subprojec
 +
          /**
           * Returns the names of all installed Singularity themes (those that
-@@ -727,12 +742,6 @@ namespace Singularity.Style {
+          * contain a `singularity/style.css` file inside a standard theme dir).
+          */
          public static string[] list_singularity_themes() {
              var themes = new Gee.ArrayList<string>();
 -            string[] dirs = {
