@@ -92,6 +92,16 @@ in
       touch $out
     '';
 
+  cached-packages =
+    pkgs.runCommand "singularity-desktop-cached-packages"
+      {
+        paths = builtins.attrValues self.packages.${system};
+      }
+      ''
+        mkdir -p $out
+        echo "Cached all singularity-desktop packages ($(echo "$paths" | wc -w) store paths)"
+      '';
+
   package-layout =
     pkgs.runCommand "singularity-desktop-package-layout"
       {
