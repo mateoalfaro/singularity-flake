@@ -46,6 +46,13 @@
       applicationPackageNames = map (id: "singularity-${id}") applicationIds;
     in
     {
+      nixConfig = {
+        extra-substituters = [ "https://singularity-flake.cachix.org" ];
+        extra-trusted-public-keys = [
+          "singularity-flake.cachix.org-1:VuMgdHdcA0CNCZiX05SEqR/e78PGf3obmZI/2zI4CEo="
+        ];
+      };
+
       packages = forAllSystems (
         system:
         import ./nix/packages {
