@@ -63,11 +63,11 @@
     "singularity-desktop-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1786641076,
-        "narHash": "sha256-9JtS2shcZqhO+M9vjc99UjzqNMag7+ZS64gFYA1kdtQ=",
+        "lastModified": 1786649491,
+        "narHash": "sha256-jP6BYlq47kHB1CD5oZfOGcUA/HfxQRM5OI2av0/NCkU=",
         "ref": "refs/heads/master",
-        "rev": "4e5c5b75b8433084cafd894a1895dcb0632f3864",
-        "revCount": 226,
+        "rev": "0f51e6045ccff3e80e0edfa62eb78085527c62b9",
+        "revCount": 227,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"
