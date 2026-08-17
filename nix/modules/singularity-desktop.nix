@@ -203,7 +203,9 @@ in
         greeter executables used by this module, including
         <filename>bin/singularity-labwc-session</filename>,
         <filename>bin/labwc</filename>, and the portal/session metadata
-        installed by the default package.
+        installed by the default package. The portal metadata must include
+        a desktop-specific configuration at
+        <filename>share/xdg-desktop-portal/&lt;desktop&gt;-portals.conf</filename>.
       '';
     };
 
@@ -301,10 +303,10 @@ in
       xdg.portal = {
         enable = true;
         extraPortals = [ cfg.package ];
-        config.Singularity.default = [
-          "singularity"
-          "gtk"
-        ];
+        # Let the package provide only the Singularity-specific routing
+        # policy. mkDefault composes this with another DE's package-owned
+        # portal config instead of replacing it.
+        configPackages = lib.mkDefault [ cfg.package ];
       };
 
       # Auto-enable accounts-daemon when the greeter is on so this works out of the box (still overridable).

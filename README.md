@@ -132,8 +132,17 @@ package must provide the same runtime interface as the default package:
 - `bin/labwc`
 - the greeter executables used by the module
 - Wayland session metadata under `share/wayland-sessions`
-- xdg-desktop-portal metadata and services
+- xdg-desktop-portal metadata and services, including a desktop-specific
+  config at `share/xdg-desktop-portal/<desktop>-portals.conf`
 - `passthru.providedSessions`
+
+The portal configuration must be scoped to the package's desktop name. The
+module installs the package as an additional portal implementation and uses a
+low-priority `xdg.portal.configPackages` entry, so GNOME, KDE, Hyprland, Niri,
+and other desktop modules can retain their own portal configuration when they
+are used instead of Singularity. A replacement package must not provide a
+generic `share/xdg-desktop-portal/portals.conf` that changes portal selection
+for every desktop.
 
 ## Inputs
 
