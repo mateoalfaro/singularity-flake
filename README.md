@@ -75,9 +75,18 @@ tree:
       #You can also customize greetd by replacing the default background image
       #background = "/path/to/image.jpg";
     };
+
   };
+
+  # The Singularity Cachix binary cache is enabled by default. Set this to
+  # false if you do not want to use or trust it.
+  # singularity-flake.cache.enable = false;
 }
 ```
+
+Importing either Singularity NixOS module enables the project's Cachix binary
+cache by default. To opt out, set `singularity-flake.cache.enable = false`.
+The cache setting is independent of `programs.singularity-desktop.enable`.
 
 `programs.singularity-desktop.excludePackages` accepts package values, like
 `environment.gnome.excludePackages`. Importing either Singularity NixOS module

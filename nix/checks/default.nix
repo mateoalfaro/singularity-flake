@@ -7,6 +7,9 @@
 
 let
   pkgs = nixpkgs.legacyPackages.${system};
+  cacheSubstituter = "https://singularity-flake.cachix.org";
+  cachePublicKey =
+    "singularity-flake.cachix.org-1:VuMgdHdcA0CNCZiX05SEqR/e78PGf3obmZI/2zI4CEo=";
   appIdsFrom =
     configuration:
     map (application: application.passthru.singularityAppId) (
@@ -26,6 +29,10 @@ let
     }).config;
   defaultConfiguration = evaluate {
     programs.singularity-desktop.enable = true;
+  };
+  cacheDisabledConfiguration = evaluate {
+    programs.singularity-desktop.enable = true;
+    singularity-flake.cache.enable = false;
   };
   excludedConfiguration = evaluate (
     { pkgs, ... }: {
@@ -74,6 +81,18 @@ in
 {
   module-options =
     assert self.packages.${system}.default.meta.mainProgram == "singularity-desktop";
+    assert builtins.elem cacheSubstituter (
+      defaultConfiguration.nix.settings.extra-substituters or [ ]
+    );
+    assert builtins.elem cachePublicKey (
+      defaultConfiguration.nix.settings.extra-trusted-public-keys or [ ]
+    );
+    assert !(builtins.elem cacheSubstituter (
+      cacheDisabledConfiguration.nix.settings.extra-substituters or [ ]
+    ));
+    assert !(builtins.elem cachePublicKey (
+      cacheDisabledConfiguration.nix.settings.extra-trusted-public-keys or [ ]
+    ));
     assert
       self.packages.${system}.default.passthru.labwcPackage.outPath
       != self.packages.${system}.experimental.passthru.labwcPackage.outPath;

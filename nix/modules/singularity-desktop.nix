@@ -14,6 +14,9 @@
 let
   cfg = config.programs.singularity-desktop;
   gcfg = cfg.greeter;
+  cacheSubstituter = "https://singularity-flake.cachix.org";
+  cachePublicKey =
+    "singularity-flake.cachix.org-1:VuMgdHdcA0CNCZiX05SEqR/e78PGf3obmZI/2zI4CEo=";
   defaultPackage = package pkgs;
   defaultApplications = applications pkgs;
   usingDefaultPackage = cfg.package == defaultPackage;
@@ -178,6 +181,15 @@ let
   '';
 in
 {
+  options.singularity-flake.cache.enable = lib.mkEnableOption "the Singularity Desktop binary cache" // {
+    default = true;
+    description = ''
+      Enable the Singularity Desktop binary cache. The cache is managed by
+      the Singularity Desktop project and can be disabled if you do not want
+      to trust or use it.
+    '';
+  };
+
   options.programs.singularity-desktop = {
     enable = lib.mkEnableOption "Singularity Desktop Environment";
 
@@ -254,6 +266,13 @@ in
   };
 
   config = lib.mkMerge [
+    (lib.mkIf config.singularity-flake.cache.enable {
+      nix.settings = {
+        extra-substituters = [ cacheSubstituter ];
+        extra-trusted-public-keys = [ cachePublicKey ];
+      };
+    })
+
     # Make the default applications available as pkgs.singularity-* so option
     # values can use the same `with pkgs; [ ... ]` style as NixOS's GNOME
     # module. Register the overlay whenever this module is imported so those
