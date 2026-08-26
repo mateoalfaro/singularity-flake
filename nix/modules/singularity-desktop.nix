@@ -25,6 +25,8 @@ let
   enabledDefaultApplications = lib.filter (
     application: !(lib.elem (applicationId application) excludedApplicationIds)
   ) defaultApplications;
+  selectedDefaultApplications =
+    lib.optionals cfg.core-apps.enable enabledDefaultApplications;
   displayManagerXdgDataDirs = lib.concatStringsSep ":" (
     lib.filter (s: s != "") [
       "${config.services.displayManager.sessionData.desktops}/share"
@@ -227,6 +229,16 @@ in
       '';
     };
 
+    core-apps.enable = lib.mkEnableOption ''
+      installation of the Singularity application suite (files, calculator,
+      calendar, edit, git, leafs, monitor, music, photos, store, videos,
+      write). Set to false for a bare desktop consisting of only the core
+      session. Individual applications can still be removed with
+      <option>excludePackages</option>
+    '' // {
+      default = true;
+    };
+
     greeter = {
       enable = lib.mkEnableOption ''
         the Singularity greeter on top of greetd. This replaces your display
@@ -286,7 +298,7 @@ in
     (lib.mkIf cfg.enable {
       services.displayManager.sessionPackages = [ cfg.package ];
 
-      environment.systemPackages = lib.mkIf usingDefaultPackage enabledDefaultApplications;
+      environment.systemPackages = lib.mkIf usingDefaultPackage selectedDefaultApplications;
 
       systemd.packages = [ cfg.package ];
 

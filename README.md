@@ -70,6 +70,9 @@ tree:
       singularity-store
     ];
 
+    # Or remove every bundled app at once without listing them:
+    core-apps.enable = false;
+
     greeter = {
       enable = true;   # enables the Singularity greeter via greetd (disabled by default)
       #You can also customize greetd by replacing the default background image
@@ -104,6 +107,9 @@ adds an overlay that exposes these default applications under `pkgs`:
 - `singularity-store`
 - `singularity-videos`
 - `singularity-write`
+
+`programs.singularity-desktop.core-apps.enable` (default `true`): setting it to `false` drops every extra bundled
+application from the system profile by default.
 
 The desktop session, shell, greeter, portal, themes, wallpapers, and other required desktop
 infrastructure are kept in the core package and cannot be excluded.
