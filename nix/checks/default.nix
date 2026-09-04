@@ -45,23 +45,6 @@ let
       };
     }
   );
-  experimentalConfiguration =
-    (nixpkgs.lib.nixosSystem {
-      inherit system;
-      modules = [
-        self.nixosModules.experimental
-        { system.stateVersion = "26.05"; }
-        ({ pkgs, ... }: {
-          programs.singularity-desktop = {
-            enable = true;
-            excludePackages = with pkgs; [
-              singularity-calculator
-              singularity-music
-            ];
-          };
-        })
-      ];
-    }).config;
   customConfiguration = evaluate {
     programs.singularity-desktop = {
       enable = true;
@@ -71,7 +54,6 @@ let
   };
   defaultIds = appIdsFrom defaultConfiguration;
   excludedIds = appIdsFrom excludedConfiguration;
-  experimentalIds = appIdsFrom experimentalConfiguration;
   failedCustomAssertions = builtins.filter (
     assertion: !assertion.assertion
   ) customConfiguration.assertions;
@@ -93,17 +75,11 @@ in
     assert !(builtins.elem cachePublicKey (
       cacheDisabledConfiguration.nix.settings.extra-trusted-public-keys or [ ]
     ));
-    assert
-      self.packages.${system}.default.passthru.labwcPackage.outPath
-      != self.packages.${system}.experimental.passthru.labwcPackage.outPath;
     assert builtins.length defaultIds == builtins.length applicationIds;
     assert builtins.all (id: builtins.elem id defaultIds) applicationIds;
     assert builtins.length excludedIds == builtins.length applicationIds - 2;
     assert !(builtins.elem "calculator" excludedIds);
     assert !(builtins.elem "music" excludedIds);
-    assert builtins.length experimentalIds == builtins.length applicationIds - 2;
-    assert !(builtins.elem "calculator" experimentalIds);
-    assert !(builtins.elem "music" experimentalIds);
     assert builtins.length failedCustomAssertions >= 1;
     assert singularitySessionTarget.bindsTo == [ "graphical-session.target" ];
     assert singularitySessionTarget.wants == [ "graphical-session-pre.target" ];

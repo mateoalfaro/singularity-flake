@@ -12,10 +12,6 @@ let
     inherit pkgs nixpkgs;
     src = inputs.labwc-src;
   };
-  experimentalLabwc = import ./labwc.nix {
-    inherit pkgs nixpkgs;
-    src = inputs.labwc-fork;
-  };
   makeSingularityDesktop = import ./desktop.nix {
     inherit
       pkgs
@@ -102,35 +98,9 @@ let
     labwcPackage = defaultLabwc;
   };
   defaultApplications = makeApplicationPackages defaultDesktop;
-
-  experimentalDesktop = makeSingularityDesktop {
-    pname = "singularity-desktop-experimental";
-    labwcPackage = experimentalLabwc;
-    src = pkgs.runCommand "singularity-desktop-experimental-src" { } ''
-      cp -R --no-preserve=mode,ownership ${inputs.singularity-desktop-src}/. $out
-
-      rm -rf $out/subprojects/singularity-shell
-      cp -R --no-preserve=mode,ownership ${inputs.singularity-shell-src} $out/subprojects/singularity-shell
-
-      rm -rf $out/subprojects/singularity-session
-      cp -R --no-preserve=mode,ownership ${inputs.singularity-session-src} $out/subprojects/singularity-session
-
-      rm -rf $out/subprojects/xdg-desktop-portal-singularity
-      cp -R --no-preserve=mode,ownership ${inputs.xdg-desktop-portal-singularity-src} $out/subprojects/xdg-desktop-portal-singularity
-
-      rm -rf $out/subprojects/labwc
-      cp -R --no-preserve=mode,ownership ${inputs.labwc-fork} $out/subprojects/labwc
-    '';
-  };
-  experimentalApplications = makeApplicationPackages experimentalDesktop;
 in
 {
   default = makeAggregate defaultDesktop defaultApplications;
-  experimental = makeAggregate experimentalDesktop experimentalApplications;
   singularity-desktop-core = defaultDesktop;
-  singularity-desktop-experimental-core = experimentalDesktop;
 }
 // defaultApplications
-// pkgs.lib.mapAttrs' (
-  name: value: pkgs.lib.nameValuePair "${name}-experimental" value
-) experimentalApplications

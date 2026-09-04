@@ -5,34 +5,14 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
     labwc-src = {
-      # url = "git+file:./singularity-desktop/subprojects/labwc"; # Local development
+      # url = "path:./singularity-desktop/subprojects/labwc"; # Local development
       url = "github:singularityos-lab/labwc";
       flake = false;
     };
 
     singularity-desktop-src = {
-      # url = "git+file:./singularity-desktop?submodules=1"; # Local development
+      # url = "path:./singularity-desktop"; # Local development
       url = "git+https://github.com/singularityos-lab/singularity-desktop.git?submodules=1";
-      flake = false;
-    };
-
-    singularity-shell-src = {
-      url = "github:mateoalfaro/singularity-shell";
-      flake = false;
-    };
-
-    singularity-session-src = {
-      url = "github:mateoalfaro/singularity-session";
-      flake = false;
-    };
-
-    xdg-desktop-portal-singularity-src = {
-      url = "github:mateoalfaro/xdg-desktop-portal-singularity";
-      flake = false;
-    };
-
-    labwc-fork = {
-      url = "github:mateoalfaro/labwc?ref=main";
       flake = false;
     };
   };
@@ -80,26 +60,12 @@
             self.packages.${final.stdenv.hostPlatform.system}.singularity-desktop-core;
         };
 
-      nixosModules = {
-        default = import ./nix/modules/singularity-desktop.nix {
-          package = pkgs: self.packages.${pkgs.stdenv.hostPlatform.system}.singularity-desktop-core;
-          applications =
-            pkgs: map (name: self.packages.${pkgs.stdenv.hostPlatform.system}.${name}) applicationPackageNames;
-          overlay = self.overlays.default;
-          defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.singularity-desktop-core";
-        };
-
-        experimental = import ./nix/modules/singularity-desktop.nix {
-          package =
-            pkgs: self.packages.${pkgs.stdenv.hostPlatform.system}.singularity-desktop-experimental-core;
-          applications =
-            pkgs:
-            map (
-              name: self.packages.${pkgs.stdenv.hostPlatform.system}."${name}-experimental"
-            ) applicationPackageNames;
-          overlay = self.overlays.default;
-          defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.singularity-desktop-experimental-core";
-        };
+      nixosModules.default = import ./nix/modules/singularity-desktop.nix {
+        package = pkgs: self.packages.${pkgs.stdenv.hostPlatform.system}.singularity-desktop-core;
+        applications =
+          pkgs: map (name: self.packages.${pkgs.stdenv.hostPlatform.system}.${name}) applicationPackageNames;
+        overlay = self.overlays.default;
+        defaultText = "inputs.singularity-desktop.packages.\${pkgs.system}.singularity-desktop-core";
       };
     };
 }

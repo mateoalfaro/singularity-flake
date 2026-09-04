@@ -33,29 +33,6 @@ and enable it with a single option:
 }
 ```
 
-## NixOS module (experimental)
-You can also use the experimental module to replace some subprojects with my own forked versions, in order to help me test new features or bug fixes.
-
-```nix
-{
-  nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
-    modules = [
-      singularity-desktop.nixosModules.experimental
-    ];
-  };
-}
-```
-
-The experimental module uses the same NixOS options as the default module, but
-its default package currently replaces these subprojects in the Singularity Desktop source
-tree:
-
-- `subprojects/singularity-shell`
-- `subprojects/singularity-session`
-- `subprojects/xdg-desktop-portal-singularity`
-- `subprojects/labwc`
-
 ## Configuration
 
 ```nix
@@ -87,12 +64,12 @@ tree:
 }
 ```
 
-Importing either Singularity NixOS module enables the project's Cachix binary
+Importing the Singularity NixOS module enables the project's Cachix binary
 cache by default. To opt out, set `singularity-flake.cache.enable = false`.
 The cache setting is independent of `programs.singularity-desktop.enable`.
 
 `programs.singularity-desktop.excludePackages` accepts package values, like
-`environment.gnome.excludePackages`. Importing either Singularity NixOS module
+`environment.gnome.excludePackages`. Importing the Singularity NixOS module
 adds an overlay that exposes these default applications under `pkgs`:
 
 - `singularity-files`
@@ -155,12 +132,6 @@ for every desktop.
 - `nixpkgs` — pinned to `nixos-unstable`.
 - `labwc-src` — tracks the latest commit of [singularityos-lab/labwc](https://github.com/singularityos-lab/labwc).
 - `singularity-desktop-src` — tracks the latest commit of [singularityos-lab/singularity-desktop](https://github.com/singularityos-lab/singularity-desktop) (with submodules).
-
-
-- `singularity-shell-src` — tracks `git@github.com:mateoalfaro/singularity-shell.git` for `packages.experimental` and `nixosModules.experimental`.
-- `singularity-session-src` — tracks `git@github.com:mateoalfaro/singularity-session.git` for `packages.experimental` and `nixosModules.experimental`.
-- `xdg-desktop-portal-singularity-src` — tracks `git@github.com:mateoalfaro/xdg-desktop-portal-singularity.git` for `packages.experimental` and `nixosModules.experimental`.
-- `labwc-fork` — tracks `git@github.com:mateoalfaro/labwc.git` for `packages.experimental` and `nixosModules.experimental`.
 
 ## Updating inputs
 

@@ -186,9 +186,9 @@ pkgs.stdenv.mkDerivation {
             --replace-fail \
               'export GSETTINGS_SCHEMA_DIR="$SHARE/glib-2.0/schemas"' \
               '# GSettings schemas are discovered through XDG_DATA_DIRS.'
-          # Keep only XDG_DATA_DIRS in the activation environment. The
-          # experimental session source omits GTK_USE_PORTAL from this block,
-          # and upstream variants add QT_QPA_PLATFORM between the two.
+          # Keep only XDG_DATA_DIRS in the activation environment. Session
+          # source variants differ in whether GTK_USE_PORTAL and
+          # QT_QPA_PLATFORM appear in this block.
           if grep -Fq -- '    GTK_USE_PORTAL QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME' \
             subprojects/singularity-session/src/singularity-desktop-session; then
             substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
@@ -212,9 +212,9 @@ pkgs.stdenv.mkDerivation {
             exit 1
           fi
 
-          # The experimental session also propagates wrapper-specific
-          # variables to user services. Keep only the session identity and
-          # data directory there.
+          # Some session sources also propagate wrapper-specific variables to
+          # user services. Keep only the session identity and data directory
+          # there.
           if grep -Fq -- 'systemctl --user set-environment' \
             subprojects/singularity-session/src/singularity-desktop-session; then
             substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
