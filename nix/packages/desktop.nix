@@ -99,6 +99,10 @@ pkgs.stdenv.mkDerivation {
     pango
     libpng
     libxkbcommon
+    sdl2-compat
+    libGL
+    libGLU
+    xorg.libX11
   ];
 
   patches = [
@@ -118,6 +122,15 @@ pkgs.stdenv.mkDerivation {
             --replace-fail \
               "subproject('singularity-demo')" \
               "# subproject('singularity-demo')"
+
+          # Skip singularity-gestures: it needs a bootstrapped runtime dir
+          # (libmediapipe.so extracted from a PyPI wheel, onnxruntime headers,
+          # and gesture models fetched from the network) that cannot be
+          # prepared inside the build sandbox.
+          substituteInPlace meson.build \
+            --replace-fail \
+              "subproject('singularity-gestures')" \
+              "# subproject('singularity-gestures')"
 
           # singularity-store creates and installs its sidebar in Vala. The
           # template sidebar is unused, and Vetro emits it as GtkAppSidebar

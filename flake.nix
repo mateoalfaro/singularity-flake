@@ -5,13 +5,13 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
     labwc-src = {
-      # url = "path:./singularity-desktop/subprojects/labwc"; # Local development
+      # url = "git+file:./singularity-desktop/subprojects/labwc"; # Local development
       url = "github:singularityos-lab/labwc";
       flake = false;
     };
 
     singularity-desktop-src = {
-      # url = "path:./singularity-desktop"; # Local development
+      # url = "git+file:./singularity-desktop?submodules=1"; # Local development
       url = "git+https://github.com/singularityos-lab/singularity-desktop.git?submodules=1";
       flake = false;
     };
