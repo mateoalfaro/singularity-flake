@@ -1,22 +1,5 @@
 {
   "nodes": {
-    "labwc-fork": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1783437749,
-        "narHash": "sha256-bUIPywGhlYRYVsqiJzQUODSrvpE0JXsJGPr+k5TDYjI=",
-        "owner": "mateoalfaro",
-        "repo": "labwc",
-        "rev": "ee34bbe0b864c03f02003822155422c3d04d2d7c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "mateoalfaro",
-        "ref": "main",
-        "repo": "labwc",
-        "type": "github"
-      }
-    },
     "labwc-src": {
       "flake": false,
       "locked": {
@@ -51,13 +34,9 @@
     },
     "root": {
       "inputs": {
-        "labwc-fork": "labwc-fork",
         "labwc-src": "labwc-src",
         "nixpkgs": "nixpkgs",
-        "singularity-desktop-src": "singularity-desktop-src",
-        "singularity-session-src": "singularity-session-src",
-        "singularity-shell-src": "singularity-shell-src",
-        "xdg-desktop-portal-singularity-src": "xdg-desktop-portal-singularity-src"
+        "singularity-desktop-src": "singularity-desktop-src"
       }
     },
     "singularity-desktop-src": {
@@ -76,54 +55,6 @@
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"
-      }
-    },
-    "singularity-session-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1783113948,
-        "narHash": "sha256-6PLTgh3SIZH7u6XSJkL/jXvc+A+phlPOA3NLzv/934c=",
-        "owner": "mateoalfaro",
-        "repo": "singularity-session",
-        "rev": "caac41cd57195178bddac7f8271dbbd7c5bb8f87",
-        "type": "github"
-      },
-      "original": {
-        "owner": "mateoalfaro",
-        "repo": "singularity-session",
-        "type": "github"
-      }
-    },
-    "singularity-shell-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1786074790,
-        "narHash": "sha256-ooI8/+U7wSEQ0nySQPJZtA4swK3gwWy30Yb8VVff8KE=",
-        "owner": "mateoalfaro",
-        "repo": "singularity-shell",
-        "rev": "d978435d27113687ce9cdbda4ea414111989a790",
-        "type": "github"
-      },
-      "original": {
-        "owner": "mateoalfaro",
-        "repo": "singularity-shell",
-        "type": "github"
-      }
-    },
-    "xdg-desktop-portal-singularity-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1782680907,
-        "narHash": "sha256-Rt8Kep2JYgsXIwc4bBxBACC9SJmPiQMkffJ4JcPTImo=",
-        "owner": "mateoalfaro",
-        "repo": "xdg-desktop-portal-singularity",
-        "rev": "d3df667f0ad07fb978fc508440d3df75da633413",
-        "type": "github"
-      },
-      "original": {
-        "owner": "mateoalfaro",
-        "repo": "xdg-desktop-portal-singularity",
-        "type": "github"
       }
     }
   },
