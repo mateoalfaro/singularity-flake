@@ -117,6 +117,15 @@ pkgs.stdenv.mkDerivation {
               "cc.find_library('polkit-agent-1', dirs: ['/usr/lib/x86_64-linux-gnu', '/usr/lib'])" \
               "dependency('polkit-agent-1')"
 
+          # Keep the About page's library-version probe useful on ARM hosts.
+          substituteInPlace subprojects/singularity-shell/src/core/system_components.vala \
+            --replace-fail \
+              '"/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib",' \
+              '"/usr/lib/x86_64-linux-gnu", "/usr/lib/aarch64-linux-gnu", "/usr/lib64", "/usr/lib",' \
+            --replace-fail \
+              '"/lib/x86_64-linux-gnu", "/opt/local/lib"' \
+              '"/lib/x86_64-linux-gnu", "/lib/aarch64-linux-gnu", "/opt/local/lib"'
+
           # Skip singularity-demo (vetro GIR template issue with AppSidebar)
           substituteInPlace meson.build \
             --replace-fail \
@@ -478,7 +487,10 @@ pkgs.stdenv.mkDerivation {
     description = "A Wayland desktop environment built on GTK4 and the labwc compositor";
     homepage = "https://github.com/singularityos-lab/singularity-desktop";
     license = nixpkgs.lib.licenses.gpl3Plus;
-    platforms = [ "x86_64-linux" ];
+    platforms = [
+      "x86_64-linux"
+      "aarch64-linux"
+    ];
     maintainers = [ ];
     mainProgram = "singularity-desktop";
   };

@@ -25,6 +25,7 @@ pkgs.stdenv.mkDerivation {
     wayland-protocols
     libxkbcommon
     libxcb
+    libglvnd
     libxcb-wm
     libxml2
     glib
@@ -48,7 +49,10 @@ pkgs.stdenv.mkDerivation {
     description = "Singularity fork of labwc (preview / tiling / blur Wayland protocols)";
     homepage = "https://github.com/singularityos-lab/labwc";
     license = nixpkgs.lib.licenses.gpl2Plus;
-    platforms = [ "x86_64-linux" ];
+    platforms = [
+      "x86_64-linux"
+      "aarch64-linux"
+    ];
     mainProgram = "labwc";
   };
 }

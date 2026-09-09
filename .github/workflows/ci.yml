@@ -7,7 +7,16 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build and test (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-latest
+          - system: aarch64-linux
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,10 +25,11 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v16
 
       - name: Build singularity-desktop
-        run: nix build .#default --print-build-logs
+        run: nix build ".#packages.${{ matrix.system }}.default" --print-build-logs
 
       - name: Test package exclusions
-        run: nix build .#checks.x86_64-linux.module-options .#checks.x86_64-linux.package-layout --print-build-logs
+        run: nix build ".#checks.${{ matrix.system }}.module-options" ".#checks.${{ matrix.system }}.package-layout" --print-build-logs
 
       - name: Check flake
-        run: nix flake check --no-build
+        if: matrix.system == 'x86_64-linux'
+        run: nix flake check --no-build --all-systems

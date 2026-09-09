@@ -20,7 +20,10 @@
   outputs =
     inputs@{ self, nixpkgs, ... }:
     let
-      systems = [ "x86_64-linux" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems f;
       applicationIds = import ./nix/applications.nix;
       applicationPackageNames = map (id: "singularity-${id}") applicationIds;
