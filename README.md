@@ -64,10 +64,6 @@ and enable it with a single option:
 }
 ```
 
-Importing the Singularity NixOS module enables the project's Cachix binary
-cache by default. To opt out, set `singularity-flake.cache.enable = false`.
-The cache setting is independent of `programs.singularity-desktop.enable`.
-
 `programs.singularity-desktop.excludePackages` accepts package values, like
 `environment.gnome.excludePackages`. Importing the Singularity NixOS module
 adds an overlay that exposes these default applications under `pkgs`:
@@ -84,9 +80,6 @@ adds an overlay that exposes these default applications under `pkgs`:
 - `singularity-store`
 - `singularity-videos`
 - `singularity-write`
-
-`programs.singularity-desktop.core-apps.enable` (default `true`): setting it to `false` drops every extra bundled
-application from the system profile by default.
 
 The desktop session, shell, greeter, portal, themes, wallpapers, and other required desktop
 infrastructure are kept in the core package and cannot be excluded.
