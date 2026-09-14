@@ -2,6 +2,7 @@
   pkgs,
   nixpkgs,
   applicationIds,
+  gestureRuntime,
   vetro,
   greeterSessionWrapperPatch,
   singularityDesktopRuntimePatch,
@@ -111,6 +112,11 @@ pkgs.stdenv.mkDerivation {
   ];
 
   postPatch = ''
+          # Upstream's bootstrap script downloads these files, which is not
+          # permitted in the Nix build sandbox. Populate the same runtime
+          # layout from fixed-output derivations instead.
+          cp -r ${gestureRuntime}/. subprojects/singularity-gestures/runtime/
+
           # Fix hardcoded /usr/lib paths for polkit-agent-1
           substituteInPlace subprojects/singularity-shell/meson.build \
             --replace-fail \
@@ -131,15 +137,6 @@ pkgs.stdenv.mkDerivation {
             --replace-fail \
               "subproject('singularity-demo')" \
               "# subproject('singularity-demo')"
-
-          # Skip singularity-gestures: it needs a bootstrapped runtime dir
-          # (libmediapipe.so extracted from a PyPI wheel, onnxruntime headers,
-          # and gesture models fetched from the network) that cannot be
-          # prepared inside the build sandbox.
-          substituteInPlace meson.build \
-            --replace-fail \
-              "subproject('singularity-gestures')" \
-              "# subproject('singularity-gestures')"
 
           # singularity-store creates and installs its sidebar in Vala. The
           # template sidebar is unused, and Vetro emits it as GtkAppSidebar

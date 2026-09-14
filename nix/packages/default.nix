@@ -8,6 +8,7 @@
 let
   applicationPackageNames = map (id: "singularity-${id}") applicationIds;
   vetro = import ./vetro.nix { inherit pkgs nixpkgs; };
+  gestureRuntime = import ./gesture-runtime.nix { inherit pkgs; };
   defaultLabwc = import ./labwc.nix {
     inherit pkgs nixpkgs;
     src = inputs.labwc-src;
@@ -17,6 +18,7 @@ let
       pkgs
       nixpkgs
       applicationIds
+      gestureRuntime
       vetro
       ;
     greeterSessionWrapperPatch = ../../patches/singularity-greeter-session-wrapper.patch;
