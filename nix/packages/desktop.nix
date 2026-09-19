@@ -123,6 +123,34 @@ pkgs.stdenv.mkDerivation {
               "cc.find_library('polkit-agent-1', dirs: ['/usr/lib/x86_64-linux-gnu', '/usr/lib'])" \
               "dependency('polkit-agent-1')"
 
+          # Install the artist-pack helpers in the Nix output and compile the
+          # matching immutable paths into the shell. Keep pkexec store-pinned
+          # so the privileged invocation cannot be shadowed through PATH.
+          substituteInPlace subprojects/singularity-shell/meson.build \
+            --replace-fail \
+              "install_dir: '/usr/local/bin'" \
+              "install_dir: get_option('bindir')"
+          substituteInPlace subprojects/singularity-shell/src/core/artist_pack_manager.vala \
+            --replace-fail \
+              '"/usr/local/bin/singularity-artist-pack-inventory"' \
+              "\"$out/bin/singularity-artist-pack-inventory\"" \
+            --replace-fail \
+              '"/usr/local/bin/singularity-artist-pack-install"' \
+              "\"$out/bin/singularity-artist-pack-install\"" \
+            --replace-fail \
+              '"/usr/share/polkit-1/actions/dev.sinty.desktop.artist-pack-install.policy"' \
+              "\"$out/share/polkit-1/actions/dev.sinty.desktop.artist-pack-install.policy\"" \
+            --replace-fail \
+              '{ "/usr/bin/pkexec", "/bin/pkexec" }' \
+              '{ "${pkgs.polkit}/bin/pkexec" }'
+
+          # systemd.pc points at systemd's own immutable store output. User
+          # units shipped by this package must instead live under this output.
+          substituteInPlace subprojects/singularity-session/meson.build \
+            --replace-fail \
+              $'systemd_dep = dependency(\'systemd\', required: false)\nif systemd_dep.found()\n  systemd_user_unit_dir = systemd_dep.get_variable(pkgconfig: \'systemduserunitdir\')\nelse\n  systemd_user_unit_dir = get_option(\'prefix\') / \'lib\' / \'systemd\' / \'user\'\nendif' \
+              "systemd_user_unit_dir = get_option('prefix') / 'lib' / 'systemd' / 'user'"
+
           # Keep the About page's library-version probe useful on ARM hosts.
           substituteInPlace subprojects/singularity-shell/src/core/system_components.vala \
             --replace-fail \
@@ -182,7 +210,7 @@ pkgs.stdenv.mkDerivation {
               'export LD_LIBRARY_PATH="$PREFIX/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
               'export LD_LIBRARY_PATH="$PREFIX/lib:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
 
-          substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+          substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
             --replace-fail \
               'export PATH="$BIN:$PATH"' \
               'export PATH="$BIN:${runtimeBinPath}''${PATH:+:$PATH}"' \
@@ -196,20 +224,20 @@ pkgs.stdenv.mkDerivation {
           # source variants differ in whether GTK_USE_PORTAL and
           # QT_QPA_PLATFORM appear in this block.
           if grep -Fq -- '    GTK_USE_PORTAL QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME' \
-            subprojects/singularity-session/src/singularity-desktop-session; then
-            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
               --replace-fail \
                 $'    GTK_USE_PORTAL QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
                 $'    XDG_DATA_DIRS \\'
           elif grep -Fq -- '    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME' \
-            subprojects/singularity-session/src/singularity-desktop-session; then
-            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
               --replace-fail \
                 $'    GTK_USE_PORTAL QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
                 $'    XDG_DATA_DIRS \\'
           elif grep -Fq -- '    QT_QPA_PLATFORMTHEME' \
-            subprojects/singularity-session/src/singularity-desktop-session; then
-            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
               --replace-fail \
                 $'    QT_QPA_PLATFORMTHEME \\\n    GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS GI_TYPELIB_PATH PATH LD_LIBRARY_PATH \\' \
                 $'    XDG_DATA_DIRS \\'
@@ -222,44 +250,53 @@ pkgs.stdenv.mkDerivation {
           # user services. Keep only the session identity and data directory
           # there.
           if grep -Fq -- 'systemctl --user set-environment' \
-            subprojects/singularity-session/src/singularity-desktop-session; then
-            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
               --replace-fail \
                 $'    QT_QPA_PLATFORMTHEME="$QT_QPA_PLATFORMTHEME" \\\n    XDG_DATA_DIRS="$XDG_DATA_DIRS" \\\n    GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR" 2>/dev/null || true' \
                 $'    XDG_DATA_DIRS="$XDG_DATA_DIRS" 2>/dev/null || true'
 
             grep -Fq -- '    XDG_CURRENT_DESKTOP="$XDG_CURRENT_DESKTOP"' \
-              subprojects/singularity-session/src/singularity-desktop-session
+              subprojects/singularity-session/src/singularity-desktop-session.in
             grep -Fq -- '    XDG_DATA_DIRS="$XDG_DATA_DIRS"' \
-              subprojects/singularity-session/src/singularity-desktop-session
+              subprojects/singularity-session/src/singularity-desktop-session.in
             if grep -Fq -- '    QT_QPA_PLATFORMTHEME="$QT_QPA_PLATFORMTHEME"' \
-              subprojects/singularity-session/src/singularity-desktop-session \
+              subprojects/singularity-session/src/singularity-desktop-session.in \
               || grep -Fq -- '    GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR"' \
-              subprojects/singularity-session/src/singularity-desktop-session; then
+              subprojects/singularity-session/src/singularity-desktop-session.in; then
               echo "forbidden wrapper-specific variable remains in systemctl environment" >&2
               exit 1
             fi
           fi
 
-          if ! grep -Fq -- 'systemctl --user start singularity-session.target' \
-            subprojects/singularity-session/src/singularity-desktop-session; then
-            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
+          if ! grep -Eq -- 'systemctl --user( --no-block)? start singularity-session.target' \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
               --replace-fail \
                 '# Restart the portal so it picks up the live session environment, but do NOT' \
                 $'systemctl --user start singularity-session.target 2>/dev/null || true\n\n# Restart the portal so it picks up the live session environment, but do NOT'
           fi
-          grep -Fq -- 'systemctl --user start singularity-session.target' \
-            subprojects/singularity-session/src/singularity-desktop-session
-          substituteInPlace subprojects/singularity-session/src/singularity-desktop-session \
-            --replace-fail \
-              'trap "rm -f $_SPID" EXIT' \
-              "trap 'systemctl --user stop singularity-session.target 2>/dev/null || true; rm -f \"\$_SPID\"' EXIT"
+          grep -Eq -- 'systemctl --user( --no-block)? start singularity-session.target' \
+            subprojects/singularity-session/src/singularity-desktop-session.in
+          if grep -Fq -- 'trap "rm -f $_SPID" EXIT' \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
+              --replace-fail \
+                'trap "rm -f $_SPID" EXIT' \
+                "trap 'systemctl --user stop singularity-session.target 2>/dev/null || true; rm -f \"\$_SPID\"' EXIT"
+          elif ! grep -Fq -- 'trap _session_cleanup EXIT' \
+            subprojects/singularity-session/src/singularity-desktop-session.in \
+            || ! grep -Eq -- 'systemctl --user( --no-block)? stop singularity-session.target' \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            echo "unsupported singularity-desktop-session cleanup block" >&2
+            exit 1
+          fi
 
           grep -Fq -- '    XDG_DATA_DIRS' \
-            subprojects/singularity-session/src/singularity-desktop-session
+            subprojects/singularity-session/src/singularity-desktop-session.in
           for forbidden in GSETTINGS_SCHEMA_DIR GI_TYPELIB_PATH LD_LIBRARY_PATH QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME; do
             if grep -Fq -- "    $forbidden" \
-              subprojects/singularity-session/src/singularity-desktop-session; then
+              subprojects/singularity-session/src/singularity-desktop-session.in; then
               echo "forbidden variable remains in dbus activation environment" >&2
               exit 1
             fi
