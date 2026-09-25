@@ -16,7 +16,9 @@ nix build github:mateoalfaro/singularity-flake
 ## NixOS module
 
 For a real desktop session, use the NixOS module. Add the flake to your inputs
-and enable it with a single option:
+and enable it with a single option. This registers the session with an existing
+display manager; enable the optional Singularity greeter below if the machine
+does not already have one:
 
 ```nix
 {
@@ -47,7 +49,7 @@ and enable it with a single option:
       singularity-store
     ];
 
-    # Or remove every bundled app at once without listing them:
+    # Or remove every optional bundled app at once without listing them.
     core-apps.enable = false;
 
     greeter = {
@@ -81,8 +83,9 @@ adds an overlay that exposes these default applications under `pkgs`:
 - `singularity-videos`
 - `singularity-write`
 
-The desktop session, shell, greeter, portal, themes, wallpapers, and other required desktop
-infrastructure are kept in the core package and cannot be excluded.
+`singularity-files` cannot be excluded: the Singularity portal advertises the
+FileChooser interface and delegates it to Files. Setting `core-apps.enable` to
+false therefore leaves Files installed while removing the other applications.
 
 When `programs.singularity-desktop.greeter.enable = true`, your desktop session
 is started by `greetd` on `tty1`. If you later switch to another display
@@ -123,8 +126,15 @@ for every desktop.
 ## Inputs
 
 - `nixpkgs` — pinned to `nixos-unstable`.
-- `labwc-src` — tracks the latest commit of [singularityos-lab/labwc](https://github.com/singularityos-lab/labwc).
-- `singularity-desktop-src` — tracks the latest commit of [singularityos-lab/singularity-desktop](https://github.com/singularityos-lab/singularity-desktop) (with submodules).
+- `singularity-desktop-src` — tracks the latest commit of [singularityos-lab/singularity-desktop](https://github.com/singularityos-lab/singularity-desktop) with submodules. The package builds the labwc revision pinned by that source tree, so the compositor and desktop cannot drift independently.
+
+For local development against the `singularity-desktop` checkout in this
+repository (including its checked-out labwc submodule), override the source:
+
+```sh
+nix build .#singularity-desktop-core \
+  --override-input singularity-desktop-src path:./singularity-desktop
+```
 
 ## Updating inputs
 

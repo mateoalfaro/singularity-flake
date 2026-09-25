@@ -6,9 +6,18 @@
 
 pkgs.stdenv.mkDerivation {
   pname = "singularity-labwc";
-  version = "0-unstable-2026-06-15";
+  version = "0-unstable-2026-09-13";
 
   inherit src;
+
+  # The fork's gesture test includes config/rcxml.h, which includes cairo and
+  # pango headers, but its Meson test dependency list omits both.
+  postPatch = ''
+    substituteInPlace t/meson.build \
+      --replace-fail \
+        $'  wlroots,\n]' \
+        $'  wlroots,\n  wayland_server,\n  cairo,\n  pangocairo,\n]'
+  '';
 
   nativeBuildInputs = with pkgs; [
     meson
@@ -18,6 +27,8 @@ pkgs.stdenv.mkDerivation {
     gettext
     scdoc
   ];
+
+  nativeCheckInputs = [ pkgs.cmocka ];
 
   buildInputs = with pkgs; [
     wlroots_0_20
@@ -43,7 +54,10 @@ pkgs.stdenv.mkDerivation {
   mesonFlags = [
     "-Dxwayland=enabled"
     "-Dsystemd-session=disabled"
+    "-Dtest=enabled"
   ];
+
+  doCheck = true;
 
   meta = {
     description = "Singularity fork of labwc (preview / tiling / blur Wayland protocols)";

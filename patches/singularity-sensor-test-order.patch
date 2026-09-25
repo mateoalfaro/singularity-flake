@@ -1,0 +1,20 @@
+--- a/subprojects/libsingularity/tests/sensor_test.vala
++++ b/subprojects/libsingularity/tests/sensor_test.vala
+@@ -773,6 +773,15 @@
+     var m = monitor_for_fixture();
+     var channels = m.fan_channels();
+     assert(channels.length == 2);
+-    assert(channels[1].pwm_channel == 2);
+-    assert(channels[1].mode == Singularity.FanMode.UNKNOWN);
++    // hwmon directory enumeration order is filesystem-dependent, so match
++    // fans by their channel number instead of list position.
++    foreach (var ch in channels) {
++        if (ch.channel == 2) {
++            assert(ch.pwm_channel == 2);
++            assert(ch.mode == Singularity.FanMode.UNKNOWN);
++        }
++        if (ch.channel == 1) {
++            assert(ch.pwm_channel == 1);
++        }
++    }
+ }

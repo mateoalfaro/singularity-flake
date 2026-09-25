@@ -103,12 +103,13 @@ pkgs.stdenv.mkDerivation {
     sdl2-compat
     libGL
     libGLU
-    xorg.libX11
+    libx11
   ];
 
   patches = [
     greeterSessionWrapperPatch
     singularityDesktopRuntimePatch
+    ../../patches/singularity-sensor-test-order.patch
   ];
 
   postPatch = ''
@@ -123,26 +124,33 @@ pkgs.stdenv.mkDerivation {
               "cc.find_library('polkit-agent-1', dirs: ['/usr/lib/x86_64-linux-gnu', '/usr/lib'])" \
               "dependency('polkit-agent-1')"
 
-          # Install the artist-pack helpers in the Nix output and compile the
-          # matching immutable paths into the shell. Keep pkexec store-pinned
-          # so the privileged invocation cannot be shadowed through PATH.
+          # Artist Packs are an apt/dpkg integration. Do not install their
+          # privileged helpers or policy on NixOS; leaving the upstream paths
+          # absent makes ArtistPackManager.is_available report false.
           substituteInPlace subprojects/singularity-shell/meson.build \
             --replace-fail \
-              "install_dir: '/usr/local/bin'" \
-              "install_dir: get_option('bindir')"
-          substituteInPlace subprojects/singularity-shell/src/core/artist_pack_manager.vala \
+              $'install_data(\'data/artist-packs/singularity-artist-pack-inventory\',\n  install_dir: \'/usr/local/bin\', install_mode: \'rwxr-xr-x\')\ninstall_data(\'data/artist-packs/singularity-artist-pack-install\',\n  install_dir: \'/usr/local/bin\', install_mode: \'rwxr-xr-x\')\ninstall_data(\'data/artist-packs/dev.sinty.desktop.artist-pack-install.policy\',\n  install_dir: get_option(\'datadir\') / \'polkit-1\' / \'actions\')' \
+              '# Artist Pack helpers are unavailable on NixOS.'
+
+          # The portal is a user service and must not depend on the ambient
+          # session PATH for its color-picker backend. GCC 15's constant
+          # merging at -O2 (injected by the Nix wrapper even for meson's
+          # "plain" buildtype) corrupts long embedded absolute paths in the
+          # generated C, so embed the binary beside the portal instead and
+          # resolve it the same way the screenshot helpers are resolved.
+          substituteInPlace subprojects/xdg-desktop-portal-singularity/src/screenshot.vala \
             --replace-fail \
-              '"/usr/local/bin/singularity-artist-pack-inventory"' \
-              "\"$out/bin/singularity-artist-pack-inventory\"" \
+              'string[] argv = {"hyprpicker"};' \
+              'string[] argv = {resolve_companion_bin("hyprpicker")};'
+
+          # singularity-git and singularity-edit are separate Nix outputs.
+          # Resolve the editor through the application wrapper on PATH.
+          substituteInPlace \
+            subprojects/singularity-git/src/diff_window.vala \
+            subprojects/singularity-git/src/window.vala \
             --replace-fail \
-              '"/usr/local/bin/singularity-artist-pack-install"' \
-              "\"$out/bin/singularity-artist-pack-install\"" \
-            --replace-fail \
-              '"/usr/share/polkit-1/actions/dev.sinty.desktop.artist-pack-install.policy"' \
-              "\"$out/share/polkit-1/actions/dev.sinty.desktop.artist-pack-install.policy\"" \
-            --replace-fail \
-              '{ "/usr/bin/pkexec", "/bin/pkexec" }' \
-              '{ "${pkgs.polkit}/bin/pkexec" }'
+              '"/opt/local/bin/singularity-edit "' \
+              '"singularity-edit "'
 
           # systemd.pc points at systemd's own immutable store output. User
           # units shipped by this package must instead live under this output.
@@ -205,7 +213,7 @@ pkgs.stdenv.mkDerivation {
           substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
             --replace-fail \
               'export PATH="$BIN:$PATH"' \
-              'export PATH="$BIN:${runtimeBinPath}''${PATH:+:$PATH}"' \
+              'export PATH="$BIN:''${PATH:+:$PATH}:${runtimeBinPath}"' \
             --replace-fail \
               'export LD_LIBRARY_PATH="$PREFIX/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
               'export LD_LIBRARY_PATH="$PREFIX/lib:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
@@ -213,7 +221,7 @@ pkgs.stdenv.mkDerivation {
           substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
             --replace-fail \
               'export PATH="$BIN:$PATH"' \
-              'export PATH="$BIN:${runtimeBinPath}''${PATH:+:$PATH}"' \
+              'export PATH="$BIN:''${PATH:+:$PATH}:${runtimeBinPath}"' \
             --replace-fail \
               'export LD_LIBRARY_PATH="$LIB''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
               'export LD_LIBRARY_PATH="$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
@@ -375,6 +383,106 @@ pkgs.stdenv.mkDerivation {
             --replace-fail \
               '#!/bin/bash' \
               '#!${pkgs.bash}/bin/bash'
+
+          # Meson drives these test scripts through bash, but the launchers
+          # under test also exec them directly (as the fake compositor and
+          # desktop binary). The build sandbox has no /usr/bin/env, so a
+          # `#!/usr/bin/env bash` shebang makes every direct exec fail with
+          # status 126. Resolve the interpreter up front.
+          for test_script in subprojects/singularity-session/tests/*.sh; do
+            substituteInPlace "$test_script" \
+              --replace-fail \
+                '#!/usr/bin/env bash' \
+                '#!${pkgs.bash}/bin/bash'
+          done
+  '';
+
+  # Upstream declares its unit/integration tests in Meson. Run them as part
+  # of the package build so source updates cannot silently bypass the suite.
+  doCheck = true;
+
+  # The test suite runs in the build sandbox, which lacks the ambient desktop
+  # environment: GIO content-type detection needs the shared MIME database,
+  # GSettings tests need compiled schemas, and the prebuilt mediapipe runtime
+  # dlopens the GLVND EGL/GLES libraries.
+  nativeCheckInputs = with pkgs; [
+    gsettings-desktop-schemas
+    shared-mime-info
+  ];
+
+  preCheck = ''
+    export GSETTINGS_SCHEMA_DIR="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}/glib-2.0/schemas"
+    export XDG_DATA_DIRS="${pkgs.shared-mime-info}/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+    export LD_LIBRARY_PATH="${pkgs.libglvnd}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+    # The prebuilt mediapipe runtime statically links tcmalloc, whose
+    # initialization hard-requires a readable /sys/devices/system/cpu/possible
+    # (TC_CHECK on NumCPUs). The Nix build sandbox mounts neither /sys nor
+    # anything else at that path, so dlopen'ing the runtime aborts every test
+    # that links it. Interpose openat to fall back to a stub topology — sized
+    # from the sandbox CPU budget — when the real file cannot be opened. On
+    # hosts where /sys is visible the shim is a passthrough.
+    cat > tcmalloc-sys-shim.c <<'SHIM_EOF'
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <string.h>
+#include <sys/syscall.h>
+
+static const char *target_path = "/sys/devices/system/cpu/possible";
+static const char *stub_path = "tcmalloc-sys-cpu-possible";
+
+static int (*real_openat)(int, const char *, int, ...);
+static long (*real_syscall)(long, ...);
+
+/* Serve the stub only when the real file is missing, so the shim is a
+ * passthrough everywhere else. */
+static int maybe_stub(int dirfd, const char *path, int flags, int mode, int rc) {
+    if (rc >= 0 || errno != ENOENT || strcmp(path, target_path) != 0) return rc;
+    return real_openat(dirfd, stub_path, flags, mode);
+}
+
+int openat(int dirfd, const char *path, int flags, ...) {
+    va_list ap;
+    mode_t mode = 0;
+    if (!real_openat) real_openat = dlsym(RTLD_NEXT, "openat");
+    va_start(ap, flags);
+    mode = va_arg(ap, int);
+    va_end(ap);
+    return maybe_stub(dirfd, path, flags, mode, real_openat(dirfd, path, flags, mode));
+}
+
+int open(const char *path, int flags, ...) {
+    va_list ap;
+    mode_t mode = 0;
+    va_start(ap, flags);
+    mode = va_arg(ap, int);
+    va_end(ap);
+    return maybe_stub(AT_FDCWD, path, flags, mode, openat(AT_FDCWD, path, flags, mode));
+}
+
+long syscall(long number, ...) {
+    long args[6];
+    va_list ap;
+    int i;
+    if (!real_syscall) real_syscall = dlsym(RTLD_NEXT, "syscall");
+    va_start(ap, number);
+    for (i = 0; i < 6; i++) args[i] = va_arg(ap, long);
+    va_end(ap);
+    if (number == SYS_openat && args[1] != 0) {
+        return maybe_stub((int) args[0], (const char *) args[1], (int) args[2],
+                          (int) args[3],
+                          real_openat((int) args[0], (const char *) args[1],
+                                      (int) args[2], (mode_t) args[3]));
+    }
+    return real_syscall(number, args[0], args[1], args[2], args[3], args[4], args[5]);
+}
+SHIM_EOF
+    cc -shared -fPIC -o tcmalloc-sys-shim.so tcmalloc-sys-shim.c -ldl
+    echo "0-$(($(nproc) - 1))" > tcmalloc-sys-cpu-possible
+    export LD_PRELOAD="$PWD/tcmalloc-sys-shim.so''${LD_PRELOAD:+:$LD_PRELOAD}"
   '';
 
   # Split user-facing applications out of the desktop/session output so
@@ -428,6 +536,13 @@ pkgs.stdenv.mkDerivation {
   postFixup = ''
     # Copy the Singularity labwc fork into the output so $BIN/labwc resolves at session startup.
     cp -r ${labwcPackage}/bin/labwc $out/bin/
+
+    # Ship the color picker beside the portal: the portal resolves
+    # hyprpicker as a sibling of /proc/self/exe (resolve_companion_bin),
+    # keeping the color-picker subprocess an immutable provider rather
+    # than an ambient-PATH lookup.
+    cp ${pkgs.hyprpicker}/bin/hyprpicker $out/libexec/hyprpicker
+    chmod +x $out/libexec/hyprpicker
 
     # Symlink polkit agent to bin/ so session script can find it
     ln -sf $out/libexec/singularity-polkit-agent $out/bin/

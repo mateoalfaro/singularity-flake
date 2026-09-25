@@ -1,28 +1,12 @@
 {
   "nodes": {
-    "labwc-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1789721734,
-        "narHash": "sha256-fcB2lAlA+5Xn68OQ7DyGI7PImMI7aqiQ4GBwQUT9wak=",
-        "owner": "singularityos-lab",
-        "repo": "labwc",
-        "rev": "025808d51a32be0a18efe0c9445c7fb18ee39718",
-        "type": "github"
-      },
-      "original": {
-        "owner": "singularityos-lab",
-        "repo": "labwc",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1789684949,
-        "narHash": "sha256-ZKhUe/2IJUq1JhKxKMu8rbkgSGmPP2ZCqlIPn40aGCM=",
+        "lastModified": 1790185690,
+        "narHash": "sha256-xJ+X4hBtOcAFGBOe5nAMyMUeF9foJBmIOu3NjBqBycU=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "e554fab72f81915600f3f449b786fd9af40439a5",
+        "rev": "4975466d324710c576dc11ad614684e6bd8cad8e",
         "type": "github"
       },
       "original": {
@@ -34,7 +18,6 @@
     },
     "root": {
       "inputs": {
-        "labwc-src": "labwc-src",
         "nixpkgs": "nixpkgs",
         "singularity-desktop-src": "singularity-desktop-src"
       }
@@ -42,11 +25,11 @@
     "singularity-desktop-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1789731444,
-        "narHash": "sha256-Q6RPUoToI5YZhsyuER1038Kfj9uUOhKnZ/Lyny+1+Dk=",
+        "lastModified": 1790094142,
+        "narHash": "sha256-tkL1qpICiVDdmmj7geVcK1PHvoyUgRkpfow+8hLIJ6A=",
         "ref": "refs/heads/master",
-        "rev": "5633bb484e96b799308d4b993e49b1ac74ebc679",
-        "revCount": 284,
+        "rev": "2fb640f04ef418e2255dc83a2155208c584fee87",
+        "revCount": 288,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"

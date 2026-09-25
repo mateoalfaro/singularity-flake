@@ -11,7 +11,9 @@ let
   gestureRuntime = import ./gesture-runtime.nix { inherit pkgs; };
   defaultLabwc = import ./labwc.nix {
     inherit pkgs nixpkgs;
-    src = inputs.labwc-src;
+    # Build the compositor revision tested by the desktop source instead of
+    # independently following another moving branch.
+    src = "${inputs.singularity-desktop-src}/subprojects/labwc";
   };
   makeSingularityDesktop = import ./desktop.nix {
     inherit

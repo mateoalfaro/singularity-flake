@@ -22,11 +22,18 @@ let
   usingDefaultPackage = cfg.package == defaultPackage;
   applicationId = application: application.passthru.singularityAppId or (lib.getName application);
   excludedApplicationIds = map applicationId cfg.excludePackages;
-  enabledDefaultApplications = lib.filter (
-    application: !(lib.elem (applicationId application) excludedApplicationIds)
+  requiredApplicationIds = [ "files" ];
+  requiredDefaultApplications = lib.filter (
+    application: lib.elem (applicationId application) requiredApplicationIds
+  ) defaultApplications;
+  enabledOptionalApplications = lib.filter (
+    application:
+    !(lib.elem (applicationId application) requiredApplicationIds)
+    && !(lib.elem (applicationId application) excludedApplicationIds)
   ) defaultApplications;
   selectedDefaultApplications =
-    lib.optionals cfg.core-apps.enable enabledDefaultApplications;
+    requiredDefaultApplications
+    ++ lib.optionals cfg.core-apps.enable enabledOptionalApplications;
   displayManagerXdgDataDirs = lib.concatStringsSep ":" (
     lib.filter (s: s != "") [
       "${config.services.displayManager.sessionData.desktops}/share"
@@ -225,16 +232,18 @@ in
         Packages from the default Singularity application set that should not
         be installed. This option is supported when using the desktop package
         provided by this flake. Packages that are not part of the default
-        application set are ignored.
+        application set are ignored. <literal>singularity-files</literal>
+        cannot be excluded because it implements the desktop's FileChooser
+        portal.
       '';
     };
 
     core-apps.enable = lib.mkEnableOption ''
-      installation of the Singularity application suite (files, calculator,
+      installation of the optional Singularity application suite (calculator,
       calendar, edit, git, leafs, monitor, music, photos, store, videos,
-      write). Set to false for a bare desktop consisting of only the core
-      session. Individual applications can still be removed with
-      <option>excludePackages</option>
+      write). Singularity Files remains installed when this is false because
+      it provides the FileChooser portal. Individual optional applications
+      can still be removed with <option>excludePackages</option>
     '' // {
       default = true;
     };
@@ -312,6 +321,20 @@ in
 
       programs.dconf.enable = true;
 
+      # These are the system services used directly by the shell and portal.
+      # mkDefault keeps every choice overridable by the host configuration.
+      networking.networkmanager.enable = lib.mkDefault true;
+      hardware.bluetooth.enable = lib.mkDefault true;
+      services.upower.enable = lib.mkDefault true;
+      services.power-profiles-daemon.enable = lib.mkDefault true;
+      services.pipewire = {
+        enable = lib.mkDefault true;
+        alsa.enable = lib.mkDefault true;
+        pulse.enable = lib.mkDefault true;
+      };
+      security.polkit.enable = lib.mkDefault true;
+      security.rtkit.enable = lib.mkDefault true;
+
       xdg.portal = {
         enable = true;
         extraPortals = [ cfg.package ];
@@ -342,6 +365,14 @@ in
       };
 
       assertions = [
+        {
+          assertion = !(lib.elem "files" excludedApplicationIds);
+          message = ''
+            programs.singularity-desktop.excludePackages cannot contain
+            singularity-files: the Singularity portal advertises FileChooser
+            and delegates that interface to the Files application.
+          '';
+        }
         {
           assertion = usingDefaultPackage || cfg.excludePackages == [ ];
           message = ''

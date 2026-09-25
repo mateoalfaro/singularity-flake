@@ -45,6 +45,30 @@ let
       };
     }
   );
+  bareConfiguration = evaluate {
+    programs.singularity-desktop = {
+      enable = true;
+      core-apps.enable = false;
+    };
+  };
+  excludedFilesConfiguration = evaluate (
+    { pkgs, ... }: {
+      programs.singularity-desktop = {
+        enable = true;
+        excludePackages = [ pkgs.singularity-files ];
+      };
+    }
+  );
+  serviceOverridesConfiguration = evaluate {
+    programs.singularity-desktop.enable = true;
+    networking.networkmanager.enable = false;
+    hardware.bluetooth.enable = false;
+    services.upower.enable = false;
+    services.power-profiles-daemon.enable = false;
+    services.pipewire.enable = false;
+    security.polkit.enable = false;
+    security.rtkit.enable = false;
+  };
   customConfiguration = evaluate {
     programs.singularity-desktop = {
       enable = true;
@@ -54,6 +78,10 @@ let
   };
   defaultIds = appIdsFrom defaultConfiguration;
   excludedIds = appIdsFrom excludedConfiguration;
+  bareIds = appIdsFrom bareConfiguration;
+  failedFilesAssertions = builtins.filter (
+    assertion: !assertion.assertion
+  ) excludedFilesConfiguration.assertions;
   failedCustomAssertions = builtins.filter (
     assertion: !assertion.assertion
   ) customConfiguration.assertions;
@@ -80,7 +108,25 @@ in
     assert builtins.length excludedIds == builtins.length applicationIds - 2;
     assert !(builtins.elem "calculator" excludedIds);
     assert !(builtins.elem "music" excludedIds);
+    assert bareIds == [ "files" ];
+    assert builtins.length failedFilesAssertions >= 1;
     assert builtins.length failedCustomAssertions >= 1;
+    assert defaultConfiguration.networking.networkmanager.enable;
+    assert defaultConfiguration.hardware.bluetooth.enable;
+    assert defaultConfiguration.services.upower.enable;
+    assert defaultConfiguration.services.power-profiles-daemon.enable;
+    assert defaultConfiguration.services.pipewire.enable;
+    assert defaultConfiguration.services.pipewire.alsa.enable;
+    assert defaultConfiguration.services.pipewire.pulse.enable;
+    assert defaultConfiguration.security.polkit.enable;
+    assert defaultConfiguration.security.rtkit.enable;
+    assert !serviceOverridesConfiguration.networking.networkmanager.enable;
+    assert !serviceOverridesConfiguration.hardware.bluetooth.enable;
+    assert !serviceOverridesConfiguration.services.upower.enable;
+    assert !serviceOverridesConfiguration.services.power-profiles-daemon.enable;
+    assert !serviceOverridesConfiguration.services.pipewire.enable;
+    assert !serviceOverridesConfiguration.security.polkit.enable;
+    assert !serviceOverridesConfiguration.security.rtkit.enable;
     assert singularitySessionTarget.bindsTo == [ "graphical-session.target" ];
     assert singularitySessionTarget.wants == [ "graphical-session-pre.target" ];
     pkgs.runCommand "singularity-desktop-module-options" { } ''
@@ -159,9 +205,9 @@ in
         fi
 
         desktop_session="$core/bin/.singularity-desktop-session-wrapped"
-        grep -F -- 'systemctl --user start singularity-session.target' \
+        grep -E -- 'systemctl --user( --no-block)? start singularity-session.target' \
           "$desktop_session" >/dev/null
-        grep -F -- 'systemctl --user stop singularity-session.target' \
+        grep -E -- 'systemctl --user( --no-block)? stop singularity-session.target' \
           "$desktop_session" >/dev/null
 
         # Core command providers must be embedded in the session PATH.
@@ -183,8 +229,24 @@ in
           grep -R -aF "$fixed_path" "$core" >/dev/null
         done
 
+        # Portal subprocesses must use immutable providers rather than an
+        # ambient systemd user-service PATH: the color picker ships beside
+        # the portal and is resolved as its sibling binary.
+        test -x "$core/libexec/hyprpicker"
+
+        # Artist Packs are apt/dpkg-specific and intentionally unavailable on
+        # NixOS, including their privileged helper and polkit policy.
+        test ! -e "$core/bin/singularity-artist-pack-inventory"
+        test ! -e "$core/bin/singularity-artist-pack-install"
+        test ! -e "$core/share/polkit-1/actions/dev.sinty.desktop.artist-pack-install.policy"
+
         # Split application wrappers expose only the runtime tools they need.
         grep -aF "${pkgs.git}/bin" "$git/bin/singularity-git" >/dev/null
+        if grep -R -aF '/opt/local/bin/singularity-edit' "$git" >/dev/null; then
+          echo "singularity-git still pins singularity-edit to /opt/local" >&2
+          exit 1
+        fi
+        grep -R -aF 'singularity-edit' "$git" >/dev/null
         grep -aF "${pkgs.flatpak}/bin" "$store/bin/singularity-store" >/dev/null
         for provider in "${pkgs.bash}/bin" "${pkgs.zip}/bin" "${pkgs.coreutils}/bin"; do
           grep -aF "$provider" "$write/bin/singularity-write" >/dev/null
