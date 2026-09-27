@@ -79,6 +79,7 @@ pkgs.stdenv.mkDerivation {
     libpeas2
     vte-gtk4
     gtksourceview5
+    enchant
     poppler
     libdbusmenu
     at-spi2-core

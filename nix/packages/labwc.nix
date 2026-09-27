@@ -13,6 +13,13 @@ pkgs.stdenv.mkDerivation {
   # The fork's gesture test includes config/rcxml.h, which includes cairo and
   # pango headers, but its Meson test dependency list omits both.
   postPatch = ''
+    # The XWayland scaling code uses the POSIX strtok_r API. Meson builds
+    # labwc as strict C11, which hides its declaration without a feature macro.
+    substituteInPlace src/xwayland-scale.c \
+      --replace-fail \
+        '#include <assert.h>' \
+        $'#define _POSIX_C_SOURCE 200809L\n#include <assert.h>'
+
     substituteInPlace t/meson.build \
       --replace-fail \
         $'  wlroots,\n]' \
