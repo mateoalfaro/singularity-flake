@@ -10,6 +10,10 @@ pkgs.stdenv.mkDerivation {
 
   inherit src;
 
+  # Newer Meson rejects the nested ternary that selects the per-test
+  # source lists; the patch rewrites it with if/elif.
+  patches = [ ../../patches/labwc-test-sources.patch ];
+
   # The fork's gesture test includes config/rcxml.h, which includes cairo and
   # pango headers, but its Meson test dependency list omits both.
   postPatch = ''
@@ -24,45 +28,6 @@ pkgs.stdenv.mkDerivation {
       --replace-fail \
         $'  wlroots,\n]' \
         $'  wlroots,\n  wayland_server,\n  cairo,\n  pangocairo,\n]'
-
-    # Newer Meson rejects nested ternary expressions. Rewrite the
-    # test-source selection with if/elif so the suite still configures.
-    patch -p1 <<'TEST_SOURCES_EOF'
---- a/t/meson.build	2026-10-06 12:53:13.116259500 -0600
-+++ b/t/meson.build	2026-10-06 12:53:20.570884680 -0600
-@@ -31,17 +31,24 @@
- ]
- 
- foreach t : tests
-+  if t == 'gesture'
-+    test_sources = [
-+      '@0@.c'.format(t),
-+      '../src/config/gesturebind.c',
-+    ]
-+  elif t == 'pressure-curve'
-+    test_sources = [
-+      '@0@.c'.format(t),
-+      '../src/config/tablet-tool.c',
-+    ]
-+  else
-+    test_sources = ['@0@.c'.format(t)]
-+  endif
-   test(
-     'test_@0@'.format(t),
-     executable(
-       'test_@0@'.format(t),
--      sources: t == 'gesture' ? [
--        '@0@.c'.format(t),
--        '../src/config/gesturebind.c',
--      ] : t == 'pressure-curve' ? [
--        '@0@.c'.format(t),
--        '../src/config/tablet-tool.c',
--      ] : '@0@.c'.format(t),
-+      sources: test_sources,
-       include_directories: [labwc_inc],
-       link_with: [test_lib],
-       dependencies: t in ['gesture', 'pressure-curve'] ? test_deps + [math] : test_deps,
-TEST_SOURCES_EOF
   '';
 
   nativeBuildInputs = with pkgs; [

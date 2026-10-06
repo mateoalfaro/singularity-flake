@@ -1,0 +1,34 @@
+--- a/t/meson.build
++++ b/t/meson.build
+@@ -31,17 +31,24 @@
+ ]
+ 
+ foreach t : tests
++  if t == 'gesture'
++    test_sources = [
++      '@0@.c'.format(t),
++      '../src/config/gesturebind.c',
++    ]
++  elif t == 'pressure-curve'
++    test_sources = [
++      '@0@.c'.format(t),
++      '../src/config/tablet-tool.c',
++    ]
++  else
++    test_sources = ['@0@.c'.format(t)]
++  endif
+   test(
+     'test_@0@'.format(t),
+     executable(
+       'test_@0@'.format(t),
+-      sources: t == 'gesture' ? [
+-        '@0@.c'.format(t),
+-        '../src/config/gesturebind.c',
+-      ] : t == 'pressure-curve' ? [
+-        '@0@.c'.format(t),
+-        '../src/config/tablet-tool.c',
+-      ] : '@0@.c'.format(t),
++      sources: test_sources,
+       include_directories: [labwc_inc],
+       link_with: [test_lib],
+       dependencies: t in ['gesture', 'pressure-curve'] ? test_deps + [math] : test_deps,
