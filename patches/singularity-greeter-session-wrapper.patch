@@ -1,6 +1,6 @@
 --- a/subprojects/singularity-greeter/src/greeter_main.c
 +++ b/subprojects/singularity-greeter/src/greeter_main.c
-@@ -40,6 +40,10 @@
+@@ -46,6 +46,10 @@
  struct g_session {
      char name[128];
      char exec[1024];
@@ -11,8 +11,8 @@
  };
  static struct g_session sessions[32];
  static int n_sessions = 0, sel_session = 0;
-@@ -281,18 +285,94 @@
-     greetd_send_object(b);
+@@ -487,18 +491,94 @@
+     begin_authentication();
  }
  
 -static void greetd_start_session(const char *exec) {
@@ -112,16 +112,32 @@
      greetd_send_object(b);
  }
  
-@@ -352,7 +433,7 @@
-             } else if (g_strcmp0(type, "success") == 0) {
-                 if (awaiting_auth) {
+@@ -637,7 +717,7 @@
                      awaiting_auth = false;
+                     auth_prompt_waiting = false;
+                     remember_login();
 -                    if (n_sessions > 0) greetd_start_session(sessions[sel_session].exec);
 +                    if (n_sessions > 0) greetd_start_session(&sessions[sel_session]);
                      wl_display_flush(display);
-                     running = false;
-                 }
-@@ -482,14 +562,28 @@
+                     if (preview || outputs == NULL) running = false;
+                     else begin_handoff();
+@@ -725,7 +805,14 @@
+ }
+ 
+ static cairo_surface_t *load_user_bg(const char *user) {
+-    cairo_surface_t *bg = load_login_screen_bg();
++    /* Custom greeter background from environment variables */
++    const char *env_bg = getenv("SINGULARITY_GREETER_BACKGROUND");
++    cairo_surface_t *bg = NULL;
++    if (env_bg && env_bg[0]) {
++        bg = loginui_load_wallpaper(env_bg, 960);
++        if (bg) return bg;
++    }
++    bg = load_login_screen_bg();
+     if (bg) return bg;
+ 
+     char acc[600];
+@@ -809,14 +896,28 @@
              if (g_key_file_load_from_file(kf, full, G_KEY_FILE_NONE, NULL)) {
                  char *exec = g_key_file_get_string(kf, "Desktop Entry", "Exec", NULL);
                  char *nm = g_key_file_get_string(kf, "Desktop Entry", "Name", NULL);
