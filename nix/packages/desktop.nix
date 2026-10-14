@@ -512,6 +512,13 @@ EOF
               "args: ['--', bridge_test]" \
               "args: ['--config-file=${dbusSessionConf}', '--', bridge_test]"
 
+          # The nearby collaboration test starts its own dbus-run-session
+          # and needs the same packaged config.
+          substituteInPlace subprojects/singularity-nearby/meson.build \
+            --replace-fail \
+              "args: ['--', collab_test]" \
+              "args: ['--config-file=${dbusSessionConf}', '--', collab_test]"
+
           substituteInPlace subprojects/singularity-shell/src/components/run_dialog/run_dialog.vala \
             --replace-fail \
               '"/bin/bash"' \

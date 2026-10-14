@@ -4,6 +4,18 @@
   src,
 }:
 
+let
+  # Upstream's scenefx.wrap pins the 0.5 tag with a liquid-glass diff
+  # (subprojects/packagefiles/scenefx-liquid.patch) that adds
+  # wlr_scene_blur_set_liquid and the liquid shader. The stock nixpkgs
+  # package is the same tag without the diff, so apply the diff here
+  # rather than let the sandboxed meson wrap fetch it.
+  scenefx = pkgs.scenefx_0_5.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [
+      "${src}/subprojects/packagefiles/scenefx-liquid.patch"
+    ];
+  });
+in
 pkgs.stdenv.mkDerivation {
   pname = "singularity-labwc";
   version = "0-unstable-2026-09-13";
@@ -45,8 +57,9 @@ pkgs.stdenv.mkDerivation {
     wlroots_0_20
     # SceneFX is the fork's scene-graph renderer (blur/glass). Its
     # meson wrap would require network downloads, which the sandbox
-    # forbids; the nixpkgs package exposes the same scenefx-0.5.pc.
-    scenefx_0_5
+    # forbids; the patched package above exposes the same scenefx-0.5.pc
+    # plus the liquid-glass API the fork now calls.
+    scenefx
     wayland
     wayland-protocols
     libxkbcommon
