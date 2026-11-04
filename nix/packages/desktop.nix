@@ -660,6 +660,12 @@ SHIM_EOF
     # nearby pairing tests fail with "TLS support is not available".
     export GIO_EXTRA_MODULES="${pkgs.glib-networking}/lib/gio/modules''${GIO_EXTRA_MODULES:+:$GIO_EXTRA_MODULES}"
 
+    # stdenv sets NIX_SSL_CERT_FILE=/no-cert-file.crt, and nixpkgs' gnutls
+    # reads its system trust store from that variable. The sharing and
+    # nearby-link tests open GLib's default TLS database; the resulting
+    # "Failed to load system trust store" warning is fatal under GTest.
+    export NIX_SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+
     # GStreamer elements the media tests need at runtime (taginject,
     # vp8/vp9enc, x264enc, muxers, qtdemux, jpeg/png decoders).
     export GST_PLUGIN_SYSTEM_PATH_1_0="${pkgs.gst_all_1.gst-plugins-base}/lib/gstreamer-1.0:${pkgs.gst_all_1.gst-plugins-good}/lib/gstreamer-1.0:${pkgs.gst_all_1.gst-plugins-ugly}/lib/gstreamer-1.0''${GST_PLUGIN_SYSTEM_PATH_1_0:+:$GST_PLUGIN_SYSTEM_PATH_1_0}"
