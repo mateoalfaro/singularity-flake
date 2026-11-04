@@ -258,18 +258,36 @@ pkgs.stdenv.mkDerivation {
           substituteInPlace subprojects/singularity-session/src/singularity-labwc-session \
             --replace-fail \
               'export PATH="$BIN:$PATH"' \
-              'export PATH="$BIN:''${PATH:+:$PATH}:${runtimeBinPath}"' \
+              'export PATH="$BIN''${PATH:+:$PATH}:${runtimeBinPath}"' \
             --replace-fail \
               'export LD_LIBRARY_PATH="$PREFIX/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
               'export LD_LIBRARY_PATH="$PREFIX/lib:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
 
+          # Newer session sources build PATH-like variables with a
+          # path_prepend helper instead of plain exports. Either way the
+          # result is $BIN, the inherited PATH, then the runtime tools; and
+          # $LIB, the runtime libraries, then the inherited library path.
+          if grep -Fq -- 'path_prepend PATH "$BIN"' \
+            subprojects/singularity-session/src/singularity-desktop-session.in; then
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
+              --replace-fail \
+                'path_prepend LD_LIBRARY_PATH "$LIB"' \
+                'path_prepend LD_LIBRARY_PATH "${runtimeLibraryPath}"
+path_prepend LD_LIBRARY_PATH "$LIB"' \
+              --replace-fail \
+                'path_prepend PATH "$BIN"' \
+                'export PATH="''${PATH:+$PATH:}${runtimeBinPath}"
+path_prepend PATH "$BIN"'
+          else
+            substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
+              --replace-fail \
+                'export PATH="$BIN:$PATH"' \
+                'export PATH="$BIN''${PATH:+:$PATH}:${runtimeBinPath}"' \
+              --replace-fail \
+                'export LD_LIBRARY_PATH="$LIB''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
+                'export LD_LIBRARY_PATH="$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
+          fi
           substituteInPlace subprojects/singularity-session/src/singularity-desktop-session.in \
-            --replace-fail \
-              'export PATH="$BIN:$PATH"' \
-              'export PATH="$BIN:''${PATH:+:$PATH}:${runtimeBinPath}"' \
-            --replace-fail \
-              'export LD_LIBRARY_PATH="$LIB''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
-              'export LD_LIBRARY_PATH="$LIB:${runtimeLibraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
             --replace-fail \
               'export GSETTINGS_SCHEMA_DIR="$SHARE/glib-2.0/schemas"' \
               '# GSettings schemas are discovered through XDG_DATA_DIRS.'
@@ -512,12 +530,15 @@ EOF
               "args: ['--', bridge_test]" \
               "args: ['--config-file=${dbusSessionConf}', '--', bridge_test]"
 
-          # The nearby collaboration test starts its own dbus-run-session
-          # and needs the same packaged config.
+          # The nearby collaboration and link tests each start their own
+          # dbus-run-session and need the same packaged config.
           substituteInPlace subprojects/singularity-nearby/meson.build \
             --replace-fail \
               "args: ['--', collab_test]" \
-              "args: ['--config-file=${dbusSessionConf}', '--', collab_test]"
+              "args: ['--config-file=${dbusSessionConf}', '--', collab_test]" \
+            --replace-fail \
+              "args: ['--', link_test]" \
+              "args: ['--config-file=${dbusSessionConf}', '--', link_test]"
 
           substituteInPlace subprojects/singularity-shell/src/components/run_dialog/run_dialog.vala \
             --replace-fail \
