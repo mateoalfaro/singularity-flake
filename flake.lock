@@ -2,11 +2,11 @@
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1793726008,
-        "narHash": "sha256-jQp1wKvbwWdLBASTXkSi/VYmDJ5AbBi1WvcMt9HWJC8=",
+        "lastModified": 1795546490,
+        "narHash": "sha256-fD1nLSQM8tFob51/thCOr49JIAIjoqybAY27/+hwZQI=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "1d060086d60cb76a40cf37109f979d88a5bd6396",
+        "rev": "58d0d3e9d527ca7263be6a45d1f86eacdc700dab",
         "type": "github"
       },
       "original": {
@@ -25,11 +25,11 @@
     "singularity-desktop-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1793188703,
-        "narHash": "sha256-nHO3rzNMrfA5zKP+jfDOTsj3ZMzXI1TqeRIiS0hTsBg=",
+        "lastModified": 1795365832,
+        "narHash": "sha256-vyREbL7RMTER1cHswj3avfq89ozO63bGVRjCaszkxIQ=",
         "ref": "refs/heads/master",
-        "rev": "6427e9c4754325c99c98bfda2060008156b8e1de",
-        "revCount": 415,
+        "rev": "10fe7c5f5387fcb59db00288075923668bcac080",
+        "revCount": 418,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/singularityos-lab/singularity-desktop.git"
